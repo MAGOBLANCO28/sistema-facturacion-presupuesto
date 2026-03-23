@@ -68,8 +68,8 @@ export default function DocumentPreview({ doc, settings }: Props) {
                 </svg>
               </div>
               <div>
-                <h1 className="text-4xl font-black tracking-tighter text-[#B91C1C] leading-none uppercase">JUANMA</h1>
-                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-zinc-500 mt-1">Reformas Integrales</p>
+                <h1 className="text-4xl font-black tracking-tighter text-[#B91C1C] leading-none uppercase">Faktio</h1>
+                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-zinc-500 mt-1">Facturación profesional</p>
                 <div className="text-[11px] leading-tight space-y-1 text-zinc-600 mt-4">
                   <p className="font-bold text-zinc-900">{settings.owner_name}</p>
                   <p>CIF: {settings.cif} | {settings.address}</p>

@@ -1,95 +1,161 @@
+import 'dotenv/config';
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import Database from "better-sqlite3";
+import { Pool } from "pg";
 import path from "path";
 import { fileURLToPath } from "url";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database("database.db");
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
 
-// Initialize database
-db.exec(`
-  CREATE TABLE IF NOT EXISTS settings (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    company_name TEXT,
-    owner_name TEXT,
-    cif TEXT,
-    phone TEXT,
-    email TEXT,
-    address TEXT,
-    city TEXT,
-    province TEXT
-  );
+// Inicializar tablas
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tenants (
+      id SERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
 
-  CREATE TABLE IF NOT EXISTS documents (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT CHECK(type IN ('invoice', 'quote')),
-    number TEXT,
-    date TEXT,
-    client_name TEXT,
-    client_dni TEXT,
-    client_address TEXT,
-    client_city TEXT,
-    items TEXT, -- JSON string
-    subtotal REAL,
-    iva_rate REAL,
-    iva_amount REAL,
-    total REAL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-`);
+    CREATE TABLE IF NOT EXISTS settings (
+      id SERIAL PRIMARY KEY,
+      tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+      company_name TEXT,
+      owner_name TEXT,
+      cif TEXT,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      city TEXT,
+      province TEXT,
+      UNIQUE(tenant_id)
+    );
 
-// Seed default settings if not exists
-const settingsCount = db.prepare("SELECT COUNT(*) as count FROM settings").get() as { count: number };
-if (settingsCount.count === 0) {
-  db.prepare(`
-    INSERT INTO settings (id, company_name, owner_name, cif, phone, email, address, city, province)
-    VALUES (1, 'JUANMA REFORMAS INTEGRALES Y MANTENIMIENTO', 'Juan Manuel Guilloto Amenedo', '31336022V', '675948420', 'jguilloto@hotmail.com', 'C/Rocío 7, Urb. El Carmen', 'El Puerto de Santa María', 'Cádiz')
-  `).run();
+    CREATE TABLE IF NOT EXISTS documents (
+      id SERIAL PRIMARY KEY,
+      tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+      type TEXT CHECK(type IN ('invoice', 'quote')),
+      number TEXT,
+      date TEXT,
+      client_name TEXT,
+      client_dni TEXT,
+      client_address TEXT,
+      client_city TEXT,
+      items JSONB,
+      subtotal REAL,
+      iva_rate REAL,
+      iva_amount REAL,
+      total REAL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+  console.log("✅ Base de datos lista");
+}
+
+// Middleware para verificar JWT
+function authMiddleware(req: any, res: any, next: any) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "No autorizado" });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    req.tenantId = decoded.tenantId;
+    next();
+  } catch {
+    res.status(401).json({ error: "Token inválido" });
+  }
 }
 
 async function startServer() {
+  await initDB();
+
   const app = express();
   app.use(express.json());
 
-  // API Routes
-  app.get("/api/settings", (req, res) => {
-    const settings = db.prepare("SELECT * FROM settings WHERE id = 1").get();
-    res.json(settings);
+  // ── AUTH ──────────────────────────────────────────
+  app.post("/api/auth/register", async (req, res) => {
+    const { email, password } = req.body;
+    try {
+      const hash = await bcrypt.hash(password, 10);
+      const result = await pool.query(
+        "INSERT INTO tenants (email, password) VALUES ($1, $2) RETURNING id",
+        [email, hash]
+      );
+      const tenantId = result.rows[0].id;
+      // Crear configuración vacía para el nuevo tenant
+      await pool.query(
+        "INSERT INTO settings (tenant_id) VALUES ($1)",
+        [tenantId]
+      );
+      const token = jwt.sign({ tenantId }, JWT_SECRET, { expiresIn: "7d" });
+      res.json({ token });
+    } catch (err: any) {
+      if (err.code === "23505") return res.status(400).json({ error: "Email ya registrado" });
+      res.status(500).json({ error: "Error al registrar" });
+    }
   });
 
-  app.post("/api/settings", (req, res) => {
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+    try {
+      const result = await pool.query("SELECT * FROM tenants WHERE email = $1", [email]);
+      const tenant = result.rows[0];
+      if (!tenant) return res.status(400).json({ error: "Email o contraseña incorrectos" });
+      const valid = await bcrypt.compare(password, tenant.password);
+      if (!valid) return res.status(400).json({ error: "Email o contraseña incorrectos" });
+      const token = jwt.sign({ tenantId: tenant.id }, JWT_SECRET, { expiresIn: "7d" });
+      res.json({ token });
+    } catch {
+      res.status(500).json({ error: "Error al iniciar sesión" });
+    }
+  });
+
+  // ── SETTINGS ──────────────────────────────────────
+  app.get("/api/settings", authMiddleware, async (req: any, res) => {
+    const result = await pool.query("SELECT * FROM settings WHERE tenant_id = $1", [req.tenantId]);
+    res.json(result.rows[0] || {});
+  });
+
+  app.post("/api/settings", authMiddleware, async (req: any, res) => {
     const { company_name, owner_name, cif, phone, email, address, city, province } = req.body;
-    db.prepare(`
-      UPDATE settings SET 
-        company_name = ?, owner_name = ?, cif = ?, phone = ?, email = ?, address = ?, city = ?, province = ?
-      WHERE id = 1
-    `).run(company_name, owner_name, cif, phone, email, address, city, province);
+    await pool.query(`
+      UPDATE settings SET
+        company_name=$1, owner_name=$2, cif=$3, phone=$4,
+        email=$5, address=$6, city=$7, province=$8
+      WHERE tenant_id=$9
+    `, [company_name, owner_name, cif, phone, email, address, city, province, req.tenantId]);
     res.json({ success: true });
   });
 
-  app.get("/api/documents", (req, res) => {
-    const documents = db.prepare("SELECT * FROM documents ORDER BY created_at DESC").all();
-    res.json(documents.map((doc: any) => ({ ...doc, items: JSON.parse(doc.items) })));
+  // ── DOCUMENTS ─────────────────────────────────────
+  app.get("/api/documents", authMiddleware, async (req: any, res) => {
+    const result = await pool.query(
+      "SELECT * FROM documents WHERE tenant_id = $1 ORDER BY created_at DESC",
+      [req.tenantId]
+    );
+    res.json(result.rows);
   });
 
-  app.post("/api/documents", (req, res) => {
+  app.post("/api/documents", authMiddleware, async (req: any, res) => {
     const { type, number, date, client_name, client_dni, client_address, client_city, items, subtotal, iva_rate, iva_amount, total } = req.body;
-    const result = db.prepare(`
-      INSERT INTO documents (type, number, date, client_name, client_dni, client_address, client_city, items, subtotal, iva_rate, iva_amount, total)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(type, number, date, client_name, client_dni, client_address, client_city, JSON.stringify(items), subtotal, iva_rate, iva_amount, total);
-    res.json({ id: result.lastInsertRowid });
+    const result = await pool.query(`
+      INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, items, subtotal, iva_rate, iva_amount, total)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id
+    `, [req.tenantId, type, number, date, client_name, client_dni, client_address, client_city, JSON.stringify(items), subtotal, iva_rate, iva_amount, total]);
+    res.json({ id: result.rows[0].id });
   });
 
-  app.delete("/api/documents/:id", (req, res) => {
-    db.prepare("DELETE FROM documents WHERE id = ?").run(req.params.id);
+  app.delete("/api/documents/:id", authMiddleware, async (req: any, res) => {
+    await pool.query("DELETE FROM documents WHERE id = $1 AND tenant_id = $2", [req.params.id, req.tenantId]);
     res.json({ success: true });
   });
 
-  // Vite middleware for development
+  // ── FRONTEND ──────────────────────────────────────
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -98,14 +164,14 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static("dist"));
-    app.get("*", (req, res) => {
+    app.get("*", (_req, res) => {
       res.sendFile(path.resolve(__dirname, "dist", "index.html"));
     });
   }
 
   const PORT = 3000;
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`🚀 Servidor en http://localhost:${PORT}`);
   });
 }
 
