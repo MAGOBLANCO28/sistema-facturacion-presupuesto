@@ -7,7 +7,6 @@ const formatEuro = (amount: number) => {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 2,
-    // Esta es la línea que obliga a separar los miles siempre
     useGrouping: true
   }).format(amount);
 };
@@ -41,8 +40,6 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
-      // If the saved subtotal/total don't match the calculation, we might want to treat them as manual
-      // But for simplicity, let's just use the initial values.
     } else {
       setFormData(prev => ({ ...prev, type }));
     }
@@ -51,11 +48,9 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
   useEffect(() => {
     const calculatedSubtotal = formData.items.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
     const subtotalToUse = manualSubtotal !== null && manualSubtotal !== '' ? Number(manualSubtotal) : calculatedSubtotal;
-
     const iva_amount = subtotalToUse * (formData.iva_rate / 100);
     const calculatedTotal = subtotalToUse + iva_amount;
     const totalToUse = manualTotal !== null && manualTotal !== '' ? Number(manualTotal) : calculatedTotal;
-
     setFormData(prev => ({
       ...prev,
       subtotal: subtotalToUse,
@@ -89,9 +84,13 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('token');
       const res = await fetch('/api/documents', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(formData),
       });
       if (res.ok) {
@@ -109,11 +108,9 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
           <div className="w-8 h-8 bg-red-700 rounded-lg flex items-center justify-center text-white">
             <FileText size={16} />
           </div>
-          <div>
-            <h2 className="text-base font-bold">
-              {initialData ? 'Editar' : 'Nueva'} {type === 'invoice' ? 'Factura' : 'Presupuesto'}
-            </h2>
-          </div>
+          <h2 className="text-base font-bold">
+            {initialData ? 'Editar' : 'Nueva'} {type === 'invoice' ? 'Factura' : 'Presupuesto'}
+          </h2>
         </div>
         <button
           onClick={handleSubmit}
@@ -125,27 +122,37 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
       </div>
 
       <form className="p-6 space-y-6">
-        {/* Header Section - Juanma Info (Compact) */}
+        {/* Header - Datos de la empresa */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start border-b pb-6 border-zinc-100">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-full h-full text-red-700">
-                <path d="M35 35 L35 80 L55 80 L55 20 L45 20 L45 50 L35 50 Z" fill="currentColor" />
-                <line x1="45" y1="20" x2="85" y2="45" stroke="currentColor" strokeWidth="1.5" />
-                <line x1="55" y1="30" x2="85" y2="50" stroke="currentColor" strokeWidth="1.5" />
-                <line x1="65" y1="40" x2="85" y2="55" stroke="currentColor" strokeWidth="1.5" />
-                <line x1="60" y1="50" x2="60" y2="80" stroke="currentColor" strokeWidth="1.5" />
-                <line x1="75" y1="60" x2="75" y2="80" stroke="currentColor" strokeWidth="1.5" />
-                <line x1="55" y1="80" x2="80" y2="80" stroke="currentColor" strokeWidth="1.5" />
+            <div className="w-16 h-16 flex items-center justify-center text-red-700">
+              <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
+                <path d="M35 35 L35 80 L55 80 L55 20 L45 20 L45 50 L35 50 Z" />
+                <rect x="60" y="20" width="25" height="5" />
+                <rect x="65" y="35" width="20" height="5" />
+                <rect x="70" y="50" width="15" height="30" />
               </svg>
             </div>
-            <div className="text-xs space-y-0.5 text-zinc-600">
-              <p className="font-black text-red-700 text-sm tracking-widest">JUANMA</p>
-              <p className="font-bold text-zinc-900">{settings?.owner_name || 'Juan Manuel Guilloto Amenedo'}</p>
-              <p>CIF: {settings?.cif || '31336022V'}</p>
-              <p>{settings?.address || 'C/Rocío 7, Urb. El Carmen'}</p>
-              <p>{settings?.city || 'El Puerto de Santa María'} ({settings?.province || 'Cádiz'})</p>
-            </div>
+
+            {settings?.owner_name ? (
+              <div className="text-xs space-y-0.5 text-zinc-600">
+                {settings.company_name && (
+                  <p className="font-black text-red-700 text-sm tracking-widest uppercase">
+                    {settings.company_name}
+                  </p>
+                )}
+                <p className="font-bold text-zinc-900">{settings.owner_name}</p>
+                <p>CIF: {settings.cif}</p>
+                <p>{settings.address}</p>
+                <p>{settings.city}{settings.province ? ` (${settings.province})` : ''}</p>
+              </div>
+            ) : (
+              <div className="text-xs text-zinc-400 space-y-1">
+                <p className="font-bold text-zinc-500">Configura los datos de tu empresa</p>
+                <p>Ve a <span className="text-red-700 font-medium">Configuración</span> para añadir</p>
+                <p>tu nombre, CIF y dirección.</p>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -173,7 +180,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
           </div>
         </div>
 
-        {/* Client Info - Fine Lines Format */}
+        {/* Datos del Cliente */}
         <div className="space-y-3">
           <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Datos del Cliente</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
@@ -221,7 +228,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
           </div>
         </div>
 
-        {/* Items Table - Reduced Row Height */}
+        {/* Conceptos e Importes */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Conceptos e Importes</h3>
@@ -293,7 +300,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
           </div>
         </div>
 
-        {/* Totals - Flexible Logic */}
+        {/* Totales */}
         <div className="flex justify-end pt-4 border-t border-zinc-100">
           <div className="w-64 space-y-2">
             <div className="flex justify-between items-center text-xs">

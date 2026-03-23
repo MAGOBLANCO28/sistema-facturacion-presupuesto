@@ -1,11 +1,23 @@
 import { useState, useEffect } from 'react';
-import { FileText, Search, Trash2, Eye, Calendar, User, Euro } from 'lucide-react';
+import { FileText, Search, Trash2, Eye, Calendar, User } from 'lucide-react';
 import { DocumentData } from '../types';
 
 interface Props {
   onEdit: (doc: DocumentData) => void;
   onPreview: (doc: DocumentData) => void;
 }
+
+const authFetch = (url: string, options?: RequestInit) => {
+  const token = localStorage.getItem('token');
+  return fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
+  });
+};
 
 export default function HistoryView({ onEdit, onPreview }: Props) {
   const [documents, setDocuments] = useState<DocumentData[]>([]);
@@ -18,7 +30,7 @@ export default function HistoryView({ onEdit, onPreview }: Props) {
 
   const fetchDocuments = async () => {
     try {
-      const res = await fetch('/api/documents');
+      const res = await authFetch('/api/documents');
       const data = await res.json();
       setDocuments(data);
     } catch (err) {
@@ -29,17 +41,15 @@ export default function HistoryView({ onEdit, onPreview }: Props) {
   const handleDelete = async (id: number) => {
     if (!confirm('¿Estás seguro de que quieres eliminar este documento?')) return;
     try {
-      const res = await fetch(`/api/documents/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchDocuments();
-      }
+      const res = await authFetch(`/api/documents/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchDocuments();
     } catch (err) {
       console.error('Error deleting document:', err);
     }
   };
 
   const filteredDocs = documents.filter(doc => {
-    const matchesSearch = 
+    const matchesSearch =
       doc.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.client_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || doc.type === filterType;
@@ -53,7 +63,7 @@ export default function HistoryView({ onEdit, onPreview }: Props) {
           <h2 className="text-2xl font-bold">Historial</h2>
           <p className="text-zinc-500 text-sm">Gestiona tus facturas y presupuestos anteriores</p>
         </div>
-        
+
         <div className="flex gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
@@ -80,23 +90,21 @@ export default function HistoryView({ onEdit, onPreview }: Props) {
       <div className="grid grid-cols-1 gap-4">
         {filteredDocs.length > 0 ? (
           filteredDocs.map(doc => (
-            <div 
-              key={doc.id} 
+            <div
+              key={doc.id}
               className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm hover:shadow-md transition-all group"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    doc.type === 'invoice' ? 'bg-red-50 text-red-700' : 'bg-zinc-100 text-zinc-600'
-                  }`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${doc.type === 'invoice' ? 'bg-red-50 text-red-700' : 'bg-zinc-100 text-zinc-600'
+                    }`}>
                     <FileText size={24} />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-lg">{doc.number}</span>
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                        doc.type === 'invoice' ? 'bg-red-100 text-red-700' : 'bg-zinc-100 text-zinc-600'
-                      }`}>
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${doc.type === 'invoice' ? 'bg-red-100 text-red-700' : 'bg-zinc-100 text-zinc-600'
+                        }`}>
                         {doc.type === 'invoice' ? 'Factura' : 'Presupuesto'}
                       </span>
                     </div>
@@ -112,7 +120,7 @@ export default function HistoryView({ onEdit, onPreview }: Props) {
                     <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Total</p>
                     <p className="text-xl font-black text-zinc-900">{doc.total.toFixed(2)} €</p>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onPreview(doc)}
