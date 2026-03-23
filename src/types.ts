@@ -33,4 +33,5 @@ export interface CompanySettings {
   address: string;
   city: string;
   province: string;
+  logo_url?: string;
 }

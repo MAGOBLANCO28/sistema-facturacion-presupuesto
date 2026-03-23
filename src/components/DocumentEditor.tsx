@@ -125,13 +125,22 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
         {/* Header - Datos de la empresa */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start border-b pb-6 border-zinc-100">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 flex items-center justify-center text-red-700">
-              <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-                <path d="M35 35 L35 80 L55 80 L55 20 L45 20 L45 50 L35 50 Z" />
-                <rect x="60" y="20" width="25" height="5" />
-                <rect x="65" y="35" width="20" height="5" />
-                <rect x="70" y="50" width="15" height="30" />
-              </svg>
+            {/* Logo o icono genérico */}
+            <div className="w-16 h-16 flex items-center justify-center flex-shrink-0">
+              {settings?.logo_url ? (
+                <img
+                  src={settings.logo_url}
+                  alt="Logo"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <svg viewBox="0 0 100 100" className="w-full h-full text-red-700" fill="currentColor">
+                  <path d="M35 35 L35 80 L55 80 L55 20 L45 20 L45 50 L35 50 Z" />
+                  <rect x="60" y="20" width="25" height="5" />
+                  <rect x="65" y="35" width="20" height="5" />
+                  <rect x="70" y="50" width="15" height="30" />
+                </svg>
+              )}
             </div>
 
             {settings?.owner_name ? (

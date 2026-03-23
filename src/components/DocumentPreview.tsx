@@ -48,36 +48,51 @@ export default function DocumentPreview({ doc, settings }: Props) {
         style={{
           width: '210mm',
           minHeight: '297mm',
-          padding: '0 15mm 20mm 15mm', // Quitamos padding superior aquí para darlo en el spacer
+          padding: '0 15mm 20mm 15mm',
           color: '#18181B',
           WebkitPrintColorAdjust: 'exact',
           printColorAdjust: 'exact',
           display: 'block',
         }}
       >
-        {/* CABECERA - Solo sale en la primera página porque no es parte del thead */}
-        <div className="pt-[20mm]"> {/* Este es el margen de la primera página */}
+        {/* CABECERA */}
+        <div className="pt-[20mm]">
           <div className="flex justify-between items-start mb-10 border-b-4 border-[#B91C1C] pb-8">
             <div className="flex items-center gap-6">
-              <div className="w-16 h-16 text-[#B91C1C]">
-                <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-                  <path d="M35 35 L35 80 L55 80 L55 20 L45 20 L45 50 L35 50 Z" />
-                  <rect x="60" y="20" width="25" height="5" />
-                  <rect x="65" y="35" width="20" height="5" />
-                  <rect x="70" y="50" width="15" height="30" />
-                </svg>
+
+              {/* Logo o icono genérico */}
+              <div className="w-16 h-16 flex items-center justify-center flex-shrink-0">
+                {settings.logo_url ? (
+                  <img
+                    src={settings.logo_url}
+                    alt="Logo"
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <svg viewBox="0 0 100 100" className="w-full h-full text-[#B91C1C]" fill="currentColor">
+                    <path d="M35 35 L35 80 L55 80 L55 20 L45 20 L45 50 L35 50 Z" />
+                    <rect x="60" y="20" width="25" height="5" />
+                    <rect x="65" y="35" width="20" height="5" />
+                    <rect x="70" y="50" width="15" height="30" />
+                  </svg>
+                )}
               </div>
+
               <div>
-                <h1 className="text-4xl font-black tracking-tighter text-[#B91C1C] leading-none uppercase">Faktio</h1>
-                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-zinc-500 mt-1">Facturación profesional</p>
-                <div className="text-[11px] leading-tight space-y-1 text-zinc-600 mt-4">
+                {settings.company_name && (
+                  <h1 className="text-4xl font-black tracking-tighter text-[#B91C1C] leading-none uppercase">
+                    {settings.company_name}
+                  </h1>
+                )}
+                <div className="text-[11px] leading-tight space-y-1 text-zinc-600 mt-2">
                   <p className="font-bold text-zinc-900">{settings.owner_name}</p>
                   <p>CIF: {settings.cif} | {settings.address}</p>
-                  <p>{settings.city} ({settings.province})</p>
+                  <p>{settings.city} {settings.province ? `(${settings.province})` : ''}</p>
                   <p className="font-semibold text-zinc-800">Tlf: {settings.phone} | {settings.email}</p>
                 </div>
               </div>
             </div>
+
             <div className="text-right">
               <div className="bg-zinc-900 text-white p-5 rounded-2xl inline-block text-left min-w-[180px]">
                 <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">
@@ -104,10 +119,9 @@ export default function DocumentPreview({ doc, settings }: Props) {
           </div>
         </div>
 
-        {/* TABLA CON REPETICIÓN DE MARGEN */}
+        {/* TABLA */}
         <table className="w-full border-collapse">
           <thead>
-            {/* ESTE ES EL TRUCO: Fila invisible que da el margen en cada página */}
             <tr style={{ height: '20mm' }} className="print:table-row hidden">
               <td colSpan={3}></td>
             </tr>
@@ -168,10 +182,8 @@ export default function DocumentPreview({ doc, settings }: Props) {
               size: A4; 
               margin: 0 !important; 
             }
-            
             body * { visibility: hidden; }
             #printable-document, #printable-document * { visibility: visible; }
-            
             #printable-document {
               position: absolute;
               left: 0;
@@ -181,13 +193,9 @@ export default function DocumentPreview({ doc, settings }: Props) {
               padding: 0 15mm 20mm 15mm !important;
               box-shadow: none !important;
             }
-
-            /* Forzamos que la tabla se comporte bien en saltos */
             table { border-spacing: 0; width: 100%; border-collapse: collapse; }
             thead { display: table-header-group; }
             tr { page-break-inside: avoid; }
-            
-            /* Mostramos la fila de margen solo al imprimir */
             .print\\:table-row { display: table-row !important; }
           }
         `

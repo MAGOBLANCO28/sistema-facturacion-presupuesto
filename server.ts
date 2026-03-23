@@ -6,12 +6,35 @@ import path from "path";
 import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import multer from "multer";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
+
+// Carpeta uploads
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+// Configuración multer
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (req: any, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `logo_${req.tenantId}${ext}`);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB máximo
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
 
 // Inicializar tablas
 async function initDB() {
@@ -34,6 +57,7 @@ async function initDB() {
       address TEXT,
       city TEXT,
       province TEXT,
+      logo_url TEXT,
       UNIQUE(tenant_id)
     );
 
@@ -55,10 +79,16 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
+
+  // Añadir columna logo_url si no existe (para bases de datos ya creadas)
+  await pool.query(`
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo_url TEXT;
+  `);
+
   console.log("✅ Base de datos lista");
 }
 
-// Middleware para verificar JWT
+// Middleware JWT
 function authMiddleware(req: any, res: any, next: any) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "No autorizado" });
@@ -77,6 +107,9 @@ async function startServer() {
   const app = express();
   app.use(express.json());
 
+  // Servir imágenes de logos
+  app.use("/uploads", express.static(uploadsDir));
+
   // ── AUTH ──────────────────────────────────────────
   app.post("/api/auth/register", async (req, res) => {
     const { email, password } = req.body;
@@ -87,11 +120,7 @@ async function startServer() {
         [email, hash]
       );
       const tenantId = result.rows[0].id;
-      // Crear configuración vacía para el nuevo tenant
-      await pool.query(
-        "INSERT INTO settings (tenant_id) VALUES ($1)",
-        [tenantId]
-      );
+      await pool.query("INSERT INTO settings (tenant_id) VALUES ($1)", [tenantId]);
       const token = jwt.sign({ tenantId }, JWT_SECRET, { expiresIn: "7d" });
       res.json({ token });
     } catch (err: any) {
@@ -129,6 +158,25 @@ async function startServer() {
         email=$5, address=$6, city=$7, province=$8
       WHERE tenant_id=$9
     `, [company_name, owner_name, cif, phone, email, address, city, province, req.tenantId]);
+    res.json({ success: true });
+  });
+
+  // ── LOGO ──────────────────────────────────────────
+  app.post("/api/settings/logo", authMiddleware, upload.single("logo"), async (req: any, res) => {
+    if (!req.file) return res.status(400).json({ error: "No se subió ningún archivo" });
+    const logoUrl = `/uploads/${req.file.filename}`;
+    await pool.query("UPDATE settings SET logo_url = $1 WHERE tenant_id = $2", [logoUrl, req.tenantId]);
+    res.json({ logo_url: logoUrl });
+  });
+
+  app.delete("/api/settings/logo", authMiddleware, async (req: any, res) => {
+    const result = await pool.query("SELECT logo_url FROM settings WHERE tenant_id = $1", [req.tenantId]);
+    const logoUrl = result.rows[0]?.logo_url;
+    if (logoUrl) {
+      const filePath = path.join(__dirname, logoUrl);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      await pool.query("UPDATE settings SET logo_url = NULL WHERE tenant_id = $1", [req.tenantId]);
+    }
     res.json({ success: true });
   });
 
