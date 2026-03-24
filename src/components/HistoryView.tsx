@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FileText, Search, Trash2, Eye, Calendar, User } from 'lucide-react';
+import { FileText, Search, Trash2, Eye, Calendar, User, Euro } from 'lucide-react';
 import { DocumentData } from '../types';
+
+const ACCENT = '#1e3a5f';
 
 interface Props {
   onEdit: (doc: DocumentData) => void;
@@ -19,14 +21,24 @@ const authFetch = (url: string, options?: RequestInit) => {
   });
 };
 
+const formatEuro = (amount: number) =>
+  new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
+
+const formatDate = (dateString: string) => {
+  if (!dateString) return '—';
+  try {
+    return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(dateString));
+  } catch {
+    return dateString;
+  }
+};
+
 export default function HistoryView({ onEdit, onPreview }: Props) {
   const [documents, setDocuments] = useState<DocumentData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'invoice' | 'quote'>('all');
 
-  useEffect(() => {
-    fetchDocuments();
-  }, []);
+  useEffect(() => { fetchDocuments(); }, []);
 
   const fetchDocuments = async () => {
     try {
@@ -50,35 +62,41 @@ export default function HistoryView({ onEdit, onPreview }: Props) {
 
   const filteredDocs = documents.filter(doc => {
     const matchesSearch =
-      doc.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.client_name.toLowerCase().includes(searchTerm.toLowerCase());
+      (doc.number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (doc.client_name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || doc.type === filterType;
     return matchesSearch && matchesType;
   });
 
+  // Estadísticas rápidas
+  const totalFacturas = documents.filter(d => d.type === 'invoice').length;
+  const totalPresupuestos = documents.filter(d => d.type === 'quote').length;
+  const totalFacturado = documents.filter(d => d.type === 'invoice').reduce((sum, d) => sum + (d.total || 0), 0);
+
   return (
     <div className="space-y-6">
+
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">Historial</h2>
-          <p className="text-zinc-500 text-sm">Gestiona tus facturas y presupuestos anteriores</p>
+          <p className="text-zinc-500 text-sm">Gestiona tus facturas y presupuestos</p>
         </div>
-
         <div className="flex gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
             <input
               type="text"
               placeholder="Buscar por número o cliente..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all w-64 text-sm"
+              className="pl-9 pr-4 py-2 bg-white border border-zinc-200 rounded-xl outline-none text-sm w-64 focus:border-zinc-400 transition-colors"
             />
           </div>
           <select
             value={filterType}
             onChange={e => setFilterType(e.target.value as any)}
-            className="px-4 py-2 bg-white border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-sm font-medium"
+            className="px-4 py-2 bg-white border border-zinc-200 rounded-xl outline-none text-sm font-medium focus:border-zinc-400 transition-colors"
           >
             <option value="all">Todos</option>
             <option value="invoice">Facturas</option>
@@ -87,74 +105,105 @@ export default function HistoryView({ onEdit, onPreview }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      {/* Estadísticas */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-zinc-100 p-5 shadow-sm">
+          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Facturas</p>
+          <p className="text-3xl font-black text-zinc-900">{totalFacturas}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-zinc-100 p-5 shadow-sm">
+          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Presupuestos</p>
+          <p className="text-3xl font-black text-zinc-900">{totalPresupuestos}</p>
+        </div>
+        <div className="rounded-2xl p-5 shadow-sm text-white" style={{ backgroundColor: ACCENT }}>
+          <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-60">Total facturado</p>
+          <p className="text-2xl font-black">{formatEuro(totalFacturado)}</p>
+        </div>
+      </div>
+
+      {/* Lista */}
+      <div className="space-y-3">
         {filteredDocs.length > 0 ? (
           filteredDocs.map(doc => (
             <div
               key={doc.id}
-              className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm hover:shadow-md transition-all group"
+              className="bg-white rounded-2xl border border-zinc-100 shadow-sm hover:shadow-md transition-all group overflow-hidden"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${doc.type === 'invoice' ? 'bg-red-50 text-red-700' : 'bg-zinc-100 text-zinc-600'
-                    }`}>
-                    <FileText size={24} />
+              <div className="flex items-center p-5 gap-4">
+
+                {/* Icono tipo */}
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white"
+                  style={{ backgroundColor: doc.type === 'invoice' ? ACCENT : '#64748b' }}
+                >
+                  <FileText size={20} />
+                </div>
+
+                {/* Info principal */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-black text-zinc-900 text-base">
+                      {doc.number || <span className="text-zinc-300 font-normal italic text-sm">Sin número</span>}
+                    </span>
+                    <span
+                      className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full text-white"
+                      style={{ backgroundColor: doc.type === 'invoice' ? ACCENT : '#64748b' }}
+                    >
+                      {doc.type === 'invoice' ? 'Factura' : 'Presupuesto'}
+                    </span>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-lg">{doc.number}</span>
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${doc.type === 'invoice' ? 'bg-red-100 text-red-700' : 'bg-zinc-100 text-zinc-600'
-                        }`}>
-                        {doc.type === 'invoice' ? 'Factura' : 'Presupuesto'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 mt-1 text-sm text-zinc-500">
-                      <span className="flex items-center gap-1.5"><User size={14} /> {doc.client_name}</span>
-                      <span className="flex items-center gap-1.5"><Calendar size={14} /> {doc.date}</span>
-                    </div>
+                  <div className="flex items-center gap-4 text-sm text-zinc-500">
+                    <span className="flex items-center gap-1.5">
+                      <User size={13} />
+                      {doc.client_name || <span className="italic text-zinc-300">Sin cliente</span>}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Calendar size={13} />
+                      {formatDate(doc.date)}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-8">
-                  <div className="text-right">
-                    <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Total</p>
-                    <p className="text-xl font-black text-zinc-900">{doc.total.toFixed(2)} €</p>
-                  </div>
+                {/* Total */}
+                <div className="text-right mr-4">
+                  <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider mb-0.5">Total</p>
+                  <p className="text-xl font-black text-zinc-900">{formatEuro(doc.total || 0)}</p>
+                </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onPreview(doc)}
-                      className="p-2.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-all"
-                      title="Ver / Imprimir"
-                    >
-                      <Eye size={20} />
-                    </button>
-                    <button
-                      onClick={() => onEdit(doc)}
-                      className="p-2.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-all"
-                      title="Editar"
-                    >
-                      <FileText size={20} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(doc.id!)}
-                      className="p-2.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                      title="Eliminar"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  </div>
+                {/* Acciones */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onPreview(doc)}
+                    className="p-2.5 text-zinc-300 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-all"
+                    title="Ver / Imprimir"
+                  >
+                    <Eye size={18} />
+                  </button>
+                  <button
+                    onClick={() => onEdit(doc)}
+                    className="p-2.5 text-zinc-300 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-all"
+                    title="Editar"
+                  >
+                    <FileText size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(doc.id!)}
+                    className="p-2.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               </div>
             </div>
           ))
         ) : (
-          <div className="bg-white border border-dashed border-zinc-300 rounded-2xl p-12 text-center">
-            <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-300">
-              <FileText size={32} />
+          <div className="bg-white border border-dashed border-zinc-200 rounded-2xl p-16 text-center">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#f0f4f8' }}>
+              <FileText size={28} style={{ color: ACCENT }} />
             </div>
-            <h3 className="text-lg font-bold text-zinc-900">No se encontraron documentos</h3>
-            <p className="text-zinc-500 mt-1">Empieza creando una nueva factura o presupuesto</p>
+            <h3 className="text-lg font-bold text-zinc-900 mb-1">No hay documentos</h3>
+            <p className="text-zinc-400 text-sm">Crea tu primera factura o presupuesto desde el menú lateral</p>
           </div>
         )}
       </div>

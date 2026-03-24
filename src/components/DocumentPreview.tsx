@@ -26,6 +26,8 @@ interface Props {
   settings: CompanySettings | null;
 }
 
+const ACCENT = '#1e3a5f';
+
 export default function DocumentPreview({ doc, settings }: Props) {
   if (!settings) return null;
 
@@ -35,7 +37,8 @@ export default function DocumentPreview({ doc, settings }: Props) {
       <div className="flex justify-end max-w-[210mm] mx-auto px-4 mb-4 print:hidden">
         <button
           onClick={() => window.print()}
-          className="flex items-center gap-2 px-6 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-[#991B1B] transition-colors shadow-lg font-bold"
+          className="flex items-center gap-2 px-6 py-2 text-white rounded-lg transition-colors shadow-lg font-bold"
+          style={{ backgroundColor: ACCENT }}
         >
           <Printer size={18} />
           Imprimir Documento
@@ -55,21 +58,14 @@ export default function DocumentPreview({ doc, settings }: Props) {
           display: 'block',
         }}
       >
-        {/* CABECERA */}
         <div className="pt-[20mm]">
-          <div className="flex justify-between items-start mb-10 border-b-4 border-[#B91C1C] pb-8">
+          <div className="flex justify-between items-start mb-10 pb-8" style={{ borderBottom: `4px solid ${ACCENT}` }}>
             <div className="flex items-center gap-6">
-
-              {/* Logo o icono genérico */}
               <div className="w-16 h-16 flex items-center justify-center flex-shrink-0">
                 {settings.logo_url ? (
-                  <img
-                    src={settings.logo_url}
-                    alt="Logo"
-                    className="w-full h-full object-contain"
-                  />
+                  <img src={settings.logo_url} alt="Logo" className="w-full h-full object-contain" />
                 ) : (
-                  <svg viewBox="0 0 100 100" className="w-full h-full text-[#B91C1C]" fill="currentColor">
+                  <svg viewBox="0 0 100 100" className="w-full h-full" fill={ACCENT}>
                     <path d="M35 35 L35 80 L55 80 L55 20 L45 20 L45 50 L35 50 Z" />
                     <rect x="60" y="20" width="25" height="5" />
                     <rect x="65" y="35" width="20" height="5" />
@@ -77,29 +73,28 @@ export default function DocumentPreview({ doc, settings }: Props) {
                   </svg>
                 )}
               </div>
-
               <div>
                 {settings.company_name && (
-                  <h1 className="text-4xl font-black tracking-tighter text-[#B91C1C] leading-none uppercase">
+                  <h1 className="text-4xl font-black tracking-tighter leading-none uppercase" style={{ color: ACCENT }}>
                     {settings.company_name}
                   </h1>
                 )}
                 <div className="text-[11px] leading-tight space-y-1 text-zinc-600 mt-2">
                   <p className="font-bold text-zinc-900">{settings.owner_name}</p>
                   <p>CIF: {settings.cif} | {settings.address}</p>
-                  <p>{settings.city} {settings.province ? `(${settings.province})` : ''}</p>
+                  <p>{settings.city}{settings.province ? ` (${settings.province})` : ''}</p>
                   <p className="font-semibold text-zinc-800">Tlf: {settings.phone} | {settings.email}</p>
                 </div>
               </div>
             </div>
 
             <div className="text-right">
-              <div className="bg-zinc-900 text-white p-5 rounded-2xl inline-block text-left min-w-[180px]">
-                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">
+              <div className="text-white p-5 rounded-2xl inline-block text-left min-w-[180px]" style={{ backgroundColor: ACCENT }}>
+                <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: '#93b4d4' }}>
                   {doc.type === 'invoice' ? 'Factura Nº' : 'Presupuesto Nº'}
                 </p>
                 <p className="text-2xl font-black leading-none mb-3">{doc.number}</p>
-                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Fecha</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: '#93b4d4' }}>Fecha</p>
                 <p className="text-base font-bold">{formatDate(doc.date)}</p>
               </div>
             </div>
@@ -119,13 +114,12 @@ export default function DocumentPreview({ doc, settings }: Props) {
           </div>
         </div>
 
-        {/* TABLA */}
         <table className="w-full border-collapse">
           <thead>
             <tr style={{ height: '20mm' }} className="print:table-row hidden">
               <td colSpan={3}></td>
             </tr>
-            <tr className="bg-zinc-900 text-white">
+            <tr className="text-white" style={{ backgroundColor: ACCENT }}>
               <th className="py-3 px-5 text-left font-bold uppercase text-[10px] tracking-widest rounded-l-xl border-none">Concepto</th>
               <th className="py-3 px-4 text-center font-bold uppercase text-[10px] tracking-widest w-20 border-none">Cant.</th>
               <th className="py-3 px-5 text-right font-bold uppercase text-[10px] tracking-widest w-32 rounded-r-xl border-none">Total</th>
@@ -134,21 +128,14 @@ export default function DocumentPreview({ doc, settings }: Props) {
           <tbody className="divide-y divide-zinc-100">
             {doc.items.map((item, i) => (
               <tr key={i} className="print:break-inside-avoid">
-                <td className="py-4 px-5 text-[12px] text-zinc-800 leading-relaxed font-medium align-top border-none">
-                  {item.concept}
-                </td>
-                <td className="py-4 px-4 text-center text-[12px] font-bold text-zinc-500 align-top border-none">
-                  {item.quantity || '-'}
-                </td>
-                <td className="py-4 px-5 text-right text-[12px] font-black text-zinc-900 align-top border-none">
-                  {item.total ? formatEuro(item.total) : '-'}
-                </td>
+                <td className="py-4 px-5 text-[12px] text-zinc-800 leading-relaxed font-medium align-top border-none">{item.concept}</td>
+                <td className="py-4 px-4 text-center text-[12px] font-bold text-zinc-500 align-top border-none">{item.quantity || '-'}</td>
+                <td className="py-4 px-5 text-right text-[12px] font-black text-zinc-900 align-top border-none">{item.total ? formatEuro(item.total) : '-'}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* TOTALES */}
         <div className="pt-8 border-t-2 border-zinc-100 print:break-inside-avoid">
           <div className="flex justify-end">
             <div className="w-72 space-y-2">
@@ -160,7 +147,7 @@ export default function DocumentPreview({ doc, settings }: Props) {
                 <span className="text-[9px] font-bold uppercase text-zinc-400">IVA ({doc.iva_rate}%)</span>
                 <span className="font-bold text-sm">{formatEuro(Number(doc.iva_amount) || 0)}</span>
               </div>
-              <div className="flex justify-between items-center p-5 bg-zinc-900 text-white rounded-2xl mt-4">
+              <div className="flex justify-between items-center p-5 text-white rounded-2xl mt-4" style={{ backgroundColor: ACCENT }}>
                 <span className="font-black uppercase text-[10px] tracking-widest">Total</span>
                 <span className="text-2xl font-black">{formatEuro(doc.total)}</span>
               </div>
@@ -178,18 +165,12 @@ export default function DocumentPreview({ doc, settings }: Props) {
       <style dangerouslySetInnerHTML={{
         __html: `
           @media print {
-            @page { 
-              size: A4; 
-              margin: 0 !important; 
-            }
+            @page { size: A4; margin: 0 !important; }
             body * { visibility: hidden; }
             #printable-document, #printable-document * { visibility: visible; }
             #printable-document {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 210mm !important;
-              margin: 0 !important;
+              position: absolute; left: 0; top: 0;
+              width: 210mm !important; margin: 0 !important;
               padding: 0 15mm 20mm 15mm !important;
               box-shadow: none !important;
             }

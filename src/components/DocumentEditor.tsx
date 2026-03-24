@@ -29,7 +29,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
     client_city: '',
     items: [{ id: Math.random().toString(36).substr(2, 9), concept: '', quantity: undefined as any, total: undefined as any }],
     subtotal: 0,
-    iva_rate: 10,
+    iva_rate: 21,
     iva_amount: 0,
     total: 0,
   });
@@ -37,11 +37,22 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
   const [manualSubtotal, setManualSubtotal] = useState<string | null>(null);
   const [manualTotal, setManualTotal] = useState<string | null>(null);
 
+  // Cargar numeración automática al crear nuevo documento
   useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
+    if (!initialData) {
+      const token = localStorage.getItem('token');
+      fetch(`/api/next-number/${type}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.number) {
+            setFormData(prev => ({ ...prev, number: data.number, type }));
+          }
+        })
+        .catch(() => { });
     } else {
-      setFormData(prev => ({ ...prev, type }));
+      setFormData(initialData);
     }
   }, [initialData, type]);
 
@@ -93,19 +104,21 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
         },
         body: JSON.stringify(formData),
       });
-      if (res.ok) {
-        onSave();
-      }
+      if (res.ok) onSave();
     } catch (err) {
       console.error('Error saving document:', err);
     }
   };
 
+  // Colores azul marino
+  const accent = '#1e3a5f';
+  const accentHover = '#162d4a';
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden max-w-4xl mx-auto">
       <div className="p-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-red-700 rounded-lg flex items-center justify-center text-white">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: accent }}>
             <FileText size={16} />
           </div>
           <h2 className="text-base font-bold">
@@ -114,7 +127,10 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
         </div>
         <button
           onClick={handleSubmit}
-          className="flex items-center gap-2 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors font-medium shadow-sm text-sm"
+          className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors font-medium shadow-sm text-sm"
+          style={{ backgroundColor: accent }}
+          onMouseOver={e => (e.currentTarget.style.backgroundColor = accentHover)}
+          onMouseOut={e => (e.currentTarget.style.backgroundColor = accent)}
         >
           <Save size={16} />
           Guardar {type === 'invoice' ? 'Factura' : 'Presupuesto'}
@@ -122,19 +138,13 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
       </div>
 
       <form className="p-6 space-y-6">
-        {/* Header - Datos de la empresa */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start border-b pb-6 border-zinc-100">
           <div className="flex items-center gap-4">
-            {/* Logo o icono genérico */}
             <div className="w-16 h-16 flex items-center justify-center flex-shrink-0">
               {settings?.logo_url ? (
-                <img
-                  src={settings.logo_url}
-                  alt="Logo"
-                  className="w-full h-full object-contain"
-                />
+                <img src={settings.logo_url} alt="Logo" className="w-full h-full object-contain" />
               ) : (
-                <svg viewBox="0 0 100 100" className="w-full h-full text-red-700" fill="currentColor">
+                <svg viewBox="0 0 100 100" className="w-full h-full" fill={accent}>
                   <path d="M35 35 L35 80 L55 80 L55 20 L45 20 L45 50 L35 50 Z" />
                   <rect x="60" y="20" width="25" height="5" />
                   <rect x="65" y="35" width="20" height="5" />
@@ -142,11 +152,10 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
                 </svg>
               )}
             </div>
-
             {settings?.owner_name ? (
               <div className="text-xs space-y-0.5 text-zinc-600">
                 {settings.company_name && (
-                  <p className="font-black text-red-700 text-sm tracking-widest uppercase">
+                  <p className="font-black text-sm tracking-widest uppercase" style={{ color: accent }}>
                     {settings.company_name}
                   </p>
                 )}
@@ -158,8 +167,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
             ) : (
               <div className="text-xs text-zinc-400 space-y-1">
                 <p className="font-bold text-zinc-500">Configura los datos de tu empresa</p>
-                <p>Ve a <span className="text-red-700 font-medium">Configuración</span> para añadir</p>
-                <p>tu nombre, CIF y dirección.</p>
+                <p>Ve a <span className="font-medium" style={{ color: accent }}>Configuración</span></p>
               </div>
             )}
           </div>
@@ -171,8 +179,8 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
                 type="text"
                 value={formData.number}
                 onChange={e => setFormData({ ...formData, number: e.target.value })}
-                className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded focus:ring-1 focus:ring-red-500 outline-none text-sm"
-                placeholder="Ej: 2024-001"
+                className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded outline-none text-sm"
+                placeholder="FAC-2025-001"
                 required
               />
             </div>
@@ -182,82 +190,49 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
                 type="date"
                 value={formData.date}
                 onChange={e => setFormData({ ...formData, date: e.target.value })}
-                className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded focus:ring-1 focus:ring-red-500 outline-none text-sm"
+                className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded outline-none text-sm"
                 required
               />
             </div>
           </div>
         </div>
 
-        {/* Datos del Cliente */}
         <div className="space-y-3">
           <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Datos del Cliente</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
             <div className="flex items-center border-b border-zinc-100 pb-1">
               <span className="text-[10px] font-bold text-zinc-400 w-24 uppercase">Don/Doña:</span>
-              <input
-                type="text"
-                value={formData.client_name}
-                onChange={e => setFormData({ ...formData, client_name: e.target.value })}
-                className="flex-1 bg-transparent outline-none text-sm font-medium"
-                placeholder="Nombre completo"
-                required
-              />
+              <input type="text" value={formData.client_name} onChange={e => setFormData({ ...formData, client_name: e.target.value })} className="flex-1 bg-transparent outline-none text-sm font-medium" placeholder="Nombre completo" required />
             </div>
             <div className="flex items-center border-b border-zinc-100 pb-1">
               <span className="text-[10px] font-bold text-zinc-400 w-24 uppercase">DNI / CIF:</span>
-              <input
-                type="text"
-                value={formData.client_dni}
-                onChange={e => setFormData({ ...formData, client_dni: e.target.value })}
-                className="flex-1 bg-transparent outline-none text-sm font-medium"
-                placeholder="Identificación"
-              />
+              <input type="text" value={formData.client_dni} onChange={e => setFormData({ ...formData, client_dni: e.target.value })} className="flex-1 bg-transparent outline-none text-sm font-medium" placeholder="Identificación" />
             </div>
             <div className="flex items-center border-b border-zinc-100 pb-1">
               <span className="text-[10px] font-bold text-zinc-400 w-24 uppercase">Dirección:</span>
-              <input
-                type="text"
-                value={formData.client_address}
-                onChange={e => setFormData({ ...formData, client_address: e.target.value })}
-                className="flex-1 bg-transparent outline-none text-sm font-medium"
-                placeholder="Calle, número..."
-              />
+              <input type="text" value={formData.client_address} onChange={e => setFormData({ ...formData, client_address: e.target.value })} className="flex-1 bg-transparent outline-none text-sm font-medium" placeholder="Calle, número..." />
             </div>
             <div className="flex items-center border-b border-zinc-100 pb-1">
               <span className="text-[10px] font-bold text-zinc-400 w-24 uppercase">Población:</span>
-              <input
-                type="text"
-                value={formData.client_city}
-                onChange={e => setFormData({ ...formData, client_city: e.target.value })}
-                className="flex-1 bg-transparent outline-none text-sm font-medium"
-                placeholder="Ciudad"
-              />
+              <input type="text" value={formData.client_city} onChange={e => setFormData({ ...formData, client_city: e.target.value })} className="flex-1 bg-transparent outline-none text-sm font-medium" placeholder="Ciudad" />
             </div>
           </div>
         </div>
 
-        {/* Conceptos e Importes */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Conceptos e Importes</h3>
-            <button
-              type="button"
-              onClick={handleAddItem}
-              className="flex items-center gap-1 text-[10px] font-black text-red-700 hover:text-red-800 uppercase"
-            >
-              <Plus size={12} />
-              Añadir Línea
+            <button type="button" onClick={handleAddItem} className="flex items-center gap-1 text-[10px] font-black uppercase" style={{ color: accent }}>
+              <Plus size={12} /> Añadir Línea
             </button>
           </div>
-
           <div className="border rounded-lg overflow-hidden border-zinc-100">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-zinc-50 border-b border-zinc-100">
-                  <th className="py-2 px-4 text-[10px] font-bold text-zinc-400 uppercase">Concepto</th>
-                  <th className="py-2 px-2 text-[10px] font-bold text-zinc-400 uppercase text-center w-20">Cant.</th>
-                  <th className="py-2 px-4 text-[10px] font-bold text-zinc-400 uppercase text-right w-28">Total (€)</th>
+                <tr className="text-white" style={{ backgroundColor: accent }}>
+                  <th className="py-2 px-4 text-[10px] font-bold uppercase">Concepto</th>
+                  <th className="py-2 px-2 text-[10px] font-bold uppercase text-center w-20">Cant.</th>
+                  <th className="py-2 px-4 text-[10px] font-bold uppercase text-right w-28">Total (€)</th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
@@ -265,40 +240,16 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
                 {formData.items.map((item) => (
                   <tr key={item.id} className="group">
                     <td className="py-1 px-4">
-                      <input
-                        type="text"
-                        value={item.concept}
-                        onChange={e => handleItemChange(item.id, 'concept', e.target.value)}
-                        className="w-full bg-transparent outline-none text-sm py-1"
-                        placeholder="Descripción..."
-                        required
-                      />
+                      <input type="text" value={item.concept} onChange={e => handleItemChange(item.id, 'concept', e.target.value)} className="w-full bg-transparent outline-none text-sm py-1" placeholder="Descripción..." required />
                     </td>
                     <td className="py-1 px-2">
-                      <input
-                        type="number"
-                        value={item.quantity === undefined ? '' : item.quantity}
-                        onChange={e => handleItemChange(item.id, 'quantity', e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full bg-transparent outline-none text-sm text-center py-1"
-                      />
+                      <input type="number" value={item.quantity === undefined ? '' : item.quantity} onChange={e => handleItemChange(item.id, 'quantity', e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-transparent outline-none text-sm text-center py-1" />
                     </td>
                     <td className="py-1 px-4">
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={item.total === undefined ? '' : item.total}
-                        onChange={e => handleItemChange(item.id, 'total', e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full bg-transparent outline-none text-sm text-right py-1 font-medium"
-                        placeholder="0.00"
-                      />
+                      <input type="number" step="0.01" value={item.total === undefined ? '' : item.total} onChange={e => handleItemChange(item.id, 'total', e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-transparent outline-none text-sm text-right py-1 font-medium" placeholder="0.00" />
                     </td>
                     <td className="py-1 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(item.id)}
-                        className="p-1 text-zinc-200 hover:text-red-600 transition-colors"
-                        disabled={formData.items.length === 1}
-                      >
+                      <button type="button" onClick={() => handleRemoveItem(item.id)} className="p-1 text-zinc-200 hover:text-red-600 transition-colors" disabled={formData.items.length === 1}>
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -309,33 +260,21 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
           </div>
         </div>
 
-        {/* Totales */}
         <div className="flex justify-end pt-4 border-t border-zinc-100">
           <div className="w-64 space-y-2">
             <div className="flex justify-between items-center text-xs">
               <span className="text-zinc-400 font-bold uppercase text-[10px]">Subtotal</span>
               <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  step="0.01"
-                  value={manualSubtotal !== null ? manualSubtotal : formData.subtotal.toFixed(2)}
-                  onChange={e => setManualSubtotal(e.target.value)}
-                  onBlur={() => { if (manualSubtotal === '') setManualSubtotal(null); }}
-                  className="bg-transparent outline-none text-right font-bold w-24 focus:text-red-700"
-                />
+                <input type="number" step="0.01" value={manualSubtotal !== null ? manualSubtotal : formData.subtotal.toFixed(2)} onChange={e => setManualSubtotal(e.target.value)} onBlur={() => { if (manualSubtotal === '') setManualSubtotal(null); }} className="bg-transparent outline-none text-right font-bold w-24" />
                 <span className="text-zinc-400 font-bold">€</span>
               </div>
             </div>
             <div className="flex justify-between items-center text-xs">
               <div className="flex items-center gap-2">
                 <span className="text-zinc-400 font-bold uppercase text-[10px]">IVA</span>
-                <select
-                  value={formData.iva_rate}
-                  onChange={e => setFormData({ ...formData, iva_rate: Number(e.target.value) })}
-                  className="px-1 py-0.5 bg-zinc-100 border border-zinc-200 rounded text-[10px] font-black outline-none"
-                >
-                  <option value={10}>10%</option>
+                <select value={formData.iva_rate} onChange={e => setFormData({ ...formData, iva_rate: Number(e.target.value) })} className="px-1 py-0.5 bg-zinc-100 border border-zinc-200 rounded text-[10px] font-black outline-none">
                   <option value={21}>21%</option>
+                  <option value={10}>10%</option>
                   <option value={0}>0%</option>
                 </select>
               </div>
@@ -344,15 +283,8 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
             <div className="flex justify-between items-center pt-2 border-t border-zinc-200">
               <span className="text-xs font-black uppercase text-zinc-900 tracking-widest">Total</span>
               <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  step="0.01"
-                  value={manualTotal !== null ? manualTotal : formData.total.toFixed(2)}
-                  onChange={e => setManualTotal(e.target.value)}
-                  onBlur={() => { if (manualTotal === '') setManualTotal(null); }}
-                  className="bg-transparent outline-none text-right font-black text-lg text-red-700 w-32 focus:ring-1 focus:ring-red-100 rounded"
-                />
-                <span className="text-red-700 font-black text-lg">€</span>
+                <input type="number" step="0.01" value={manualTotal !== null ? manualTotal : formData.total.toFixed(2)} onChange={e => setManualTotal(e.target.value)} onBlur={() => { if (manualTotal === '') setManualTotal(null); }} className="bg-transparent outline-none text-right font-black text-lg w-32" style={{ color: accent }} />
+                <span className="font-black text-lg" style={{ color: accent }}>€</span>
               </div>
             </div>
           </div>

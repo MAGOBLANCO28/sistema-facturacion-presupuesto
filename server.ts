@@ -180,6 +180,27 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // ── NUMERACIÓN AUTOMÁTICA ─────────────────────────
+  app.get("/api/next-number/:type", authMiddleware, async (req: any, res) => {
+    const { type } = req.params;
+    const year = new Date().getFullYear();
+    const prefix = type === 'invoice' ? 'FAC' : 'PRES';
+    const result = await pool.query(`
+    SELECT number FROM documents 
+    WHERE tenant_id = $1 AND type = $2 AND number LIKE $3
+    ORDER BY number DESC LIMIT 1
+  `, [req.tenantId, type, `${prefix}-${year}-%`]);
+
+    let nextNum = 1;
+    if (result.rows.length > 0) {
+      const lastNumber = result.rows[0].number;
+      const parts = lastNumber.split('-');
+      nextNum = parseInt(parts[parts.length - 1]) + 1;
+    }
+    const formatted = `${prefix}-${year}-${String(nextNum).padStart(3, '0')}`;
+    res.json({ number: formatted });
+  });
+
   // ── DOCUMENTS ─────────────────────────────────────
   app.get("/api/documents", authMiddleware, async (req: any, res) => {
     const result = await pool.query(
