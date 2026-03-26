@@ -3,11 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Juanma Invoices & Quotes</title>
+    <title>Faktio 2026 | Smart Tax Copilot</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0F172A" />
+    <link rel="apple-touch-icon" href="/logo-512.png" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(reg => {
+            console.log('SW registrado corectamente', reg);
+          }).catch(err => {
+            console.log('Fallo al registrar SW', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>
 

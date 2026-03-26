@@ -1,4 +1,5 @@
 export type DocumentType = 'invoice' | 'quote';
+export type DocumentStatus = 'Borrador' | 'Emitida' | 'Pagada' | 'Rectificativa' | 'Cancelada' | 'Pendiente' | 'Aceptado' | 'Rechazado' | 'Convertido';
 
 export interface DocumentItem {
   id: string;
@@ -16,12 +17,28 @@ export interface DocumentData {
   client_dni: string;
   client_address: string;
   client_city: string;
+  client_zip?: string;
+  client_province?: string;
   items: DocumentItem[];
   subtotal: number;
   iva_rate: number;
   iva_amount: number;
   total: number;
+  status: DocumentStatus;
+  is_rectificative?: boolean;
+  original_invoice_id?: number;
   created_at?: string;
+}
+
+export interface Expense {
+  id?: number;
+  description: string;
+  amount: number;
+  iva_amount: number;
+  iva_rate: number;
+  category: string;
+  date: string;
+  ticket_image_url?: string;
 }
 
 export interface CompanySettings {
@@ -33,5 +50,6 @@ export interface CompanySettings {
   address: string;
   city: string;
   province: string;
+  zip: string;
   logo_url?: string;
 }

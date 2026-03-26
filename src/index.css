@@ -1,37 +1,87 @@
 @import "tailwindcss";
 
-@layer base {
-  /* Remove numeric spinners */
-  input[type="number"]::-webkit-inner-spin-button,
-  input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+:root {
+  --background: #0f172a; /* slate-900 */
+  --foreground: #f8fafc;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .glass {
+    background-color: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
-  input[type="number"] {
-    -moz-appearance: textfield;
+  
+  .glass-hover:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 40px rgba(168, 85, 247, 0.1);
+    transition: all 500ms;
   }
 
-  /* Print color accuracy */
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
+  .neon-border-purple { border-color: rgba(168, 85, 247, 0.3); }
+  .neon-border-blue { border-color: rgba(59, 130, 246, 0.3); }
+  .neon-border-amber { border-color: rgba(245, 158, 11, 0.3); }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 @media print {
-  /* Hide input borders and backgrounds on print for a clean document look */
-  input, textarea, select {
-    border: none !important;
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  .glass, .glass-hover {
     background: transparent !important;
-    padding: 0 !important;
-    outline: none !important;
+    border: none !important;
+    backdrop-filter: none !important;
     box-shadow: none !important;
   }
+  .print-hidden, .no-print, aside, header, nav, button {
+    display: none !important;
+  }
+  * {
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    border-color: #e5e7eb !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+  .max-w-6xl {
+    max-width: none !important;
+    padding: 0 !important;
+  }
   
-  /* Ensure text is black and sharp */
-  body {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  /* Reset Card styles for print */
+  .bg-white\/5, .bg-slate-900, .bg-\[\#0f172a\] {
+    background-color: white !important;
   }
 }
 
