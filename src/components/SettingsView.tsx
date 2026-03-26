@@ -147,7 +147,7 @@ export default function SettingsView({ settings, onUpdate }: Props) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-3">
       <div className="flex items-center justify-between mb-2 px-2">
         <h2 className="text-2xl font-black text-white tracking-tighter">Ajustes</h2>
         <div className="flex glass p-1 rounded-2xl">
@@ -158,78 +158,83 @@ export default function SettingsView({ settings, onUpdate }: Props) {
 
       <AnimatePresence mode="wait">
         {activeTab === 'profile' ? (
-          <form key="profile" onSubmit={handleSubmit} className="space-y-6">
-            <Card className="p-8">
-              <div className="flex items-center gap-6 pb-6 mb-6 border-b border-white/5">
-                 <div 
-                   className="w-16 h-16 rounded-2xl border border-dashed border-white/20 flex items-center justify-center overflow-hidden bg-white/5 group hover:border-purple-500/50 cursor-pointer transition-all relative shadow-2xl"
-                   onClick={() => fileInputRef.current?.click()}
-                 >
-                    {formData.logo_url ? (
-                      <img src={formData.logo_url} alt="Logo" className="w-full h-full object-contain p-2" />
-                    ) : (
-                      <Upload size={20} className="text-slate-600 group-hover:text-purple-400 transition-colors" />
-                    )}
-                    {uploadingLogo && <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center"><div className="w-5 h-5 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" /></div>}
-                 </div>
-                 <div className="flex-1">
-                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest leading-none mb-1">Logo Corporativo</h3>
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-none">Aparecerá en todas tus facturas.</p>
-                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                 </div>
-              </div>
+          <form key="profile" onSubmit={handleSubmit} className="space-y-3">
+            <Card className="p-3 flex flex-col items-center justify-center text-center gap-2">
+              <label className="relative cursor-pointer group">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden border border-white/10 group-hover:border-purple-500/50 transition-all bg-slate-900 shadow-xl relative z-10">
+                  {settings?.logo_url ? (
+                    <img src={settings.logo_url} alt="Logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <Building2 size={32} className="text-slate-600 group-hover:text-purple-400 group-hover:scale-110 transition-all duration-300" />
+                  )}
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
-                 <CompactField label="Nombre Empresa" value={formData.company_name} onChange={v => setFormData({...formData, company_name: v})} icon={<Globe size={11} />} placeholder="Ej. ACME S.L." />
-                 <CompactField label="NIF / CIF" value={formData.cif} onChange={v => setFormData({...formData, cif: v})} icon={<ShieldCheck size={11} />} placeholder="B12345678" />
-                 <CompactField label="Responsable" value={formData.owner_name} onChange={v => setFormData({...formData, owner_name: v})} icon={<Key size={11} />} placeholder="Nombre Completo" />
-                 <CompactField label="Email Fiscal" value={formData.email} onChange={v => setFormData({...formData, email: v})} icon={<Mail size={11} />} placeholder="admin@factio.es" />
-                 <CompactField label="Teléfono" value={formData.phone} onChange={v => setFormData({...formData, phone: v})} icon={<PhoneIcon size={11} />} placeholder="+34 ..." />
-                 <CompactField label="Ciudad" value={formData.city} onChange={v => setFormData({...formData, city: v})} icon={<MapPin size={11} />} placeholder="Madrid" />
+                <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl z-20 backdrop-blur-sm">
+                  <Upload size={20} className="text-white" />
+                </div>
+                {uploadingLogo && (
+                  <div className="absolute inset-0 bg-slate-900/90 flex items-center justify-center rounded-2xl z-30 backdrop-blur-sm">
+                    <div className="w-6 h-6 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+                  </div>
+                )}
+              </label>
+              <div className="space-y-1">
+                 <h3 className="font-black text-white text-sm">Logo de Empresa</h3>
+                 <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">PNG / JPG (Max 5MB)</p>
               </div>
+            </Card>
 
-              <div className="grid grid-cols-2 gap-6 mt-6 pt-6 border-t border-white/5">
-                 <CompactField label="Dirección Postal" value={formData.address} onChange={v => setFormData({...formData, address: v})} placeholder="Calle Falsa 123" />
+            {/* Formulario */}
+            <Card className="md:col-span-2 p-3 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                 <InputField label="Nombre Empresa" value={formData.company_name} onChange={(e: any) => setFormData({...formData, company_name: e.target.value})} placeholder="Ej. ACME S.L." />
+                 <InputField label="NIF / CIF" value={formData.cif} onChange={e => setFormData({...formData, cif: e.target.value})} placeholder="B12345678" />
+                 <InputField label="Responsable" value={formData.owner_name} onChange={e => setFormData({...formData, owner_name: e.target.value})} placeholder="Nombre Completo" />
+                 <InputField label="Email Fiscal" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="admin@factio.es" />
+                 <InputField label="Teléfono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+34 ..." />
+                 <InputField label="Ciudad" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} placeholder="Madrid" />
+                 <InputField label="Dirección Postal" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Calle Falsa 123" />
                  <div className="grid grid-cols-2 gap-3">
-                    <CompactField label="Provincia" value={formData.province} onChange={v => setFormData({...formData, province: v})} placeholder="Madrid" />
-                    <CompactField label="C.P." value={formData.zip} onChange={v => setFormData({...formData, zip: v})} placeholder="28001" />
+                    <InputField label="Provincia" value={formData.province} onChange={(e: any) => setFormData({...formData, province: e.target.value})} placeholder="Madrid" />
+                    <InputField label="C.P." value={formData.zip} onChange={(e: any) => setFormData({...formData, zip: e.target.value})} placeholder="28001" />
                  </div>
               </div>
             </Card>
 
-            <div className="flex items-center justify-between px-2">
+            <div className="flex items-center justify-between px-2 pt-2">
                <div>{saved && <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest animate-pulse">✓ Guardado</span>}</div>
-               <button type="submit" className="px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
-                 <CheckCircle2 size={16} /> Aplicar Cambios
+               <button type="submit" className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
+                 <CheckCircle2 size={14} /> Aplicar Cambios
                </button>
             </div>
           </form>
         ) : (
-          <div key="security" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <Card className="p-8 space-y-6" accent="blue">
-                  <div className="flex items-center gap-4 mb-2">
-                     <div className="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-lg"><Lock size={18} /></div>
-                     <h3 className="text-xs font-black text-white uppercase tracking-widest">Código PIN</h3>
+          <div key="security" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <Card className="p-4 space-y-4" accent="blue">
+                  <div className="flex items-center gap-3 mb-2">
+                     <div className="w-8 h-8 bg-blue-500/10 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/20 shadow-lg"><Lock size={14} /></div>
+                     <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Código PIN</h3>
                   </div>
-                  <div className="space-y-5">
+                  <div className="space-y-3">
                      <PinInput label="PIN Actual" value={currentPin} onChange={setCurrentPin} />
                      <PinInput label="Nuevo PIN" value={newPin} onChange={setNewPin} />
-                     <button onClick={handleUpdatePin} className="w-full py-4 bg-white/5 text-white border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all shadow-xl">
+                     <button onClick={handleUpdatePin} className="w-full py-2.5 mt-2 bg-white/5 text-white border border-white/10 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white/10 transition-all shadow-xl">
                         Cambiar PIN
                      </button>
                   </div>
                </Card>
 
-               <Card className="p-8 space-y-6 flex flex-col" accent="purple">
-                  <div className="flex items-center gap-4 mb-2">
-                     <div className="w-10 h-10 bg-purple-500/10 text-purple-400 rounded-2xl flex items-center justify-center border border-purple-500/20 shadow-lg"><Key size={18} /></div>
-                     <h3 className="text-xs font-black text-white uppercase tracking-widest">Semilla Maestra</h3>
+               <Card className="p-4 space-y-4 flex flex-col" accent="purple">
+                  <div className="flex items-center gap-3 mb-2">
+                     <div className="w-8 h-8 bg-purple-500/10 text-purple-400 rounded-xl flex items-center justify-center border border-purple-500/20 shadow-lg"><Key size={14} /></div>
+                     <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Semilla Maestra</h3>
                   </div>
                   {!showSeed ? (
-                    <div className="flex-1 flex flex-col gap-5">
+                    <div className="flex-1 flex flex-col gap-3">
                        <PinInput label="Confirma PIN" value={pinForSeed} onChange={setPinForSeed} />
-                       <button onClick={handleRevealSeed} className="w-full py-4 bg-purple-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-purple-600 transition-all shadow-lg mt-auto shadow-purple-500/20">
+                       <button onClick={handleRevealSeed} className="w-full py-2.5 bg-purple-500 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-purple-600 transition-all shadow-lg mt-auto shadow-purple-500/20">
                           Revelar Frase
                        </button>
                     </div>
@@ -255,7 +260,7 @@ export default function SettingsView({ settings, onUpdate }: Props) {
 
 function TabButton({ active, onClick, label }: { active: boolean, onClick: () => void, label: string }) {
    return (
-      <button 
+      <button
         onClick={onClick}
         className={`flex items-center gap-2 px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all duration-300 ${active ? 'bg-white/10 text-white shadow-xl' : 'text-slate-500 hover:text-slate-300'}`}
       >
@@ -270,15 +275,35 @@ function CompactField({ label, value, onChange, icon, type = 'text', placeholder
          <label className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500 ml-1">
             {icon} {label}
          </label>
-         <input 
+         <input
            type={type}
            value={value}
            onChange={e => onChange(e.target.value)}
            placeholder={placeholder}
-           className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-2xl outline-none focus:bg-white/10 focus:ring-1 focus:ring-purple-500/20 transition-all font-bold text-slate-200 placeholder:text-slate-800 text-xs shadow-inner"
+           className="w-full px-3 py-2 bg-white/5 border border-white/5 rounded-xl outline-none focus:bg-white/10 focus:ring-1 focus:ring-purple-500/20 transition-all font-bold text-slate-200 placeholder:text-slate-800 text-[10px] shadow-inner"
          />
       </div>
    );
+}
+
+function InputField({ label, value, onChange, placeholder, type = 'text', prefix }: any) {
+  return (
+    <div className="space-y-1.5 px-1 relative">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+      <div className="relative">
+        {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">{prefix}</span>}
+        <input
+          type={type}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          readOnly
+          onFocus={e => e.target.removeAttribute('readOnly')}
+          className={`w-full bg-slate-900 border border-white/5 py-1.5 rounded-xl font-bold text-slate-200 outline-none focus:border-purple-500/50 focus:bg-white/5 transition-all text-xs ${prefix ? 'pl-8' : 'px-3'}`}
+        />
+      </div>
+    </div>
+  );
 }
 
 function PinInput({ label, value, onChange }: { label: string, value: string, onChange: (v: string) => void }) {
@@ -288,7 +313,7 @@ function PinInput({ label, value, onChange }: { label: string, value: string, on
          <input 
             type="password" maxLength={4}
             value={value} onChange={e => onChange(e.target.value)}
-            className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-2xl outline-none focus:bg-white/10 focus:ring-1 focus:ring-blue-500/20 transition-all text-center font-black tracking-[0.4em] text-white text-xs shadow-inner"
+            className="w-full px-3 py-2 bg-white/5 border border-white/5 rounded-xl outline-none focus:bg-white/10 focus:ring-1 focus:ring-blue-500/20 transition-all text-center font-black tracking-[0.4em] text-white text-[10px] shadow-inner"
          />
       </div>
    );

@@ -1,30 +1,32 @@
 import React from 'react';
 
-interface Props {
+interface Props extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
   accent?: 'purple' | 'blue' | 'amber' | 'none';
   interactive?: boolean;
+  key?: React.Key;
 }
 
-export default function Card({ children, className = '', onClick, accent = 'none', interactive }: Props) {
+export default function Card({ children, className = '', onClick, accent = 'none', interactive, ...rest }: Props) {
   const accentClasses = {
-    purple: 'border-purple-500/20 hover:border-purple-500/40 shadow-purple-500/5',
-    blue: 'border-blue-500/20 hover:border-blue-500/40 shadow-blue-500/5',
-    amber: 'border-amber-500/20 hover:border-amber-500/40 shadow-amber-500/5',
-    none: 'border-white/10 hover:border-white/20'
+    purple: 'border-purple-500/30 hover:border-purple-500/50',
+    blue: 'border-blue-500/30 hover:border-blue-500/50',
+    amber: 'border-amber-500/30 hover:border-amber-500/50',
+    none: 'border-white/15 hover:border-white/25',
   };
 
   return (
-    <div 
+    <div
       onClick={onClick}
       className={`
-        glass rounded-[2rem] overflow-hidden transition-all duration-500 shadow-2xl
+        bg-slate-800/50 rounded-[2rem] border overflow-hidden
         ${accentClasses[accent]}
-        ${interactive ? 'hover:scale-[1.02] cursor-pointer active:scale-95' : ''}
+        ${interactive ? 'cursor-pointer hover:-translate-y-1 hover:shadow-xl transition-all duration-300' : ''}
         ${className}
       `}
+      {...rest}
     >
       {children}
     </div>

@@ -36,8 +36,8 @@ export default function BudgetsView({ onEdit, onPreview }: Props) {
       const res = await fetch('/api/documents', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data: DocumentData[] = await res.json();
-      setBudgets(data.filter(d => d.type === 'quote'));
+      const data: any = await res.json();
+      setBudgets(Array.isArray(data) ? data.filter((d: any) => d.type === 'quote') : []);
     } catch (err) {
       console.error('Error fetching budgets:', err);
     } finally {
@@ -62,8 +62,8 @@ export default function BudgetsView({ onEdit, onPreview }: Props) {
   };
 
   const filtered = budgets.filter(b => 
-    b.client_name?.toLowerCase().includes(search.toLowerCase()) || 
-    b.number?.toLowerCase().includes(search.toLowerCase())
+    (b.client_name || '').toLowerCase().includes(search.toLowerCase()) || 
+    (b.number || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -73,16 +73,22 @@ export default function BudgetsView({ onEdit, onPreview }: Props) {
           <h2 className="text-3xl font-black text-white tracking-tighter">Presupuestos</h2>
           <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em] mt-2">Pipeline Comercial / Propuestas 2026</p>
         </div>
-        <div className="relative group w-full md:w-80">
+        <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-amber-400 transition-colors" size={18} />
           <input 
             type="text" 
             placeholder="Buscar propuesta..." 
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/5 rounded-2xl outline-none focus:ring-4 focus:ring-amber-500/10 transition-all font-bold text-sm text-white placeholder:text-slate-700 shadow-inner"
+            className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/5 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500/20 transition-all font-bold text-sm text-white placeholder:text-slate-700 shadow-inner"
           />
         </div>
+        <button 
+          onClick={() => onEdit({ type: 'quote', number: '', date: new Date().toISOString().split('T')[0], client_name: '', client_dni: '', client_address: '', client_city: '', client_zip: '', client_province: '', items: [{ id: Math.random().toString(), concept: '', quantity: 1, total: 0 }], subtotal: 0, iva_rate: 21, iva_amount: 0, total: 0, status: 'Pendiente' })}
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:scale-105 active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest shrink-0"
+        >
+          <Plus size={14} strokeWidth={3} /> Crear Presupuesto
+        </button>
       </div>
 
       {loading ? (

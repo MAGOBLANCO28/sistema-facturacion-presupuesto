@@ -232,17 +232,6 @@ export default function HistoryView({ onEdit, onPreview, onRectify }: Props) {
          )}
       </div>
 
-      <Card className="p-6 border-amber-500/20 bg-amber-500/5 backdrop-blur-3xl" accent="amber">
-         <div className="flex items-start gap-4">
-            <div className="w-10 h-10 bg-amber-500/20 text-amber-500 rounded-2xl flex items-center justify-center shrink-0 border border-amber-500/20">
-               <AlertCircle size={20} />
-            </div>
-            <p className="text-[10px] font-bold text-slate-400 leading-relaxed uppercase tracking-widest">
-               <span className="font-black text-amber-400 block mb-1 underline decoration-amber-500/30 underline-offset-4">Normativa VeriFactu Ley 11/2021</span>
-               Las facturas permanentes solo se anulan con facturas rectificativas correlativas. Integridad y rastreabilidad asegurada.
-            </p>
-         </div>
-      </Card>
     </div>
   );
 }

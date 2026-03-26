@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat -ano)",
+      "Bash(cmd /c \"tasklist /FI \"\"PID eq 3756\"\" /FO CSV\")",
+      "Bash(cmd /c \"taskkill /F /IM node.exe\")",
+      "Bash(cmd /c \"netstat -b -ano 2>&1 | findstr -A2 4000\")",
+      "Bash(cmd /c \"powershell -Command \"\"Get-Process -Id 3756 | Select-Object Name, Id, Path\"\"\")",
+      "Bash(powershell -Command \"Get-Process -Id 3756 | Select-Object Name, Id\")",
+      "Bash(powershell -Command \"Stop-Process -Id 3756 -Force\")",
+      "Bash(powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\")"
+    ]
+  }
+}

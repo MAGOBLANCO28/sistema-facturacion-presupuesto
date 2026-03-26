@@ -13,7 +13,8 @@ import {
   ChevronUp,
   Zap,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Save
 } from 'lucide-react';
 import { Expense } from '../types';
 import Card from './common/Card';
@@ -28,14 +29,16 @@ const formatEuro = (amount: number) => {
 export default function ExpensesView() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [newExpense, setNewExpense] = useState<Partial<Expense>>({
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
     description: '',
-    amount: 0,
+    provider: '',
+    nif: '',
+    base: 0,
+    iva: 0,
+    total: 0,
     iva_rate: 21,
     category: 'Varios',
     date: new Date().toISOString().split('T')[0]
@@ -52,7 +55,7 @@ export default function ExpensesView() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      setExpenses(data);
+      setExpenses(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching expenses:', err);
     } finally {
@@ -60,11 +63,42 @@ export default function ExpensesView() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // New handlers for the compact form
+  const handleNumberChange = (field: string, value: string) => {
+    const numValue = parseFloat(value);
+    setFormData(prev => {
+      const newFormData = { ...prev, [field]: isNaN(numValue) ? 0 : numValue };
+      if (field === 'base' || field === 'iva_rate') {
+        const base = newFormData.base;
+        const ivaRate = newFormData.iva_rate;
+        const ivaAmount = base * (ivaRate / 100);
+        newFormData.iva = parseFloat(ivaAmount.toFixed(2));
+        newFormData.total = parseFloat((base + ivaAmount).toFixed(2));
+      } else if (field === 'iva') {
+        const iva = newFormData.iva;
+        const base = newFormData.base;
+        newFormData.total = parseFloat((base + iva).toFixed(2));
+        // Recalculate iva_rate if base is not zero
+        if (base > 0) {
+          newFormData.iva_rate = parseFloat(((iva / base) * 100).toFixed(0));
+        }
+      } else if (field === 'total') {
+        const total = newFormData.total;
+        const ivaRate = newFormData.iva_rate;
+        const base = total / (1 + (ivaRate / 100));
+        const ivaAmount = total - base;
+        newFormData.base = parseFloat(base.toFixed(2));
+        newFormData.iva = parseFloat(ivaAmount.toFixed(2));
+      }
+      return newFormData;
+    });
+  };
+
+  const handleScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsOcrLoading(true);
+    setScanning(true);
     setOcrError(null);
     const formData = new FormData();
     formData.append('ticket', file);
@@ -77,259 +111,244 @@ export default function ExpensesView() {
         body: formData
       });
       const data = await res.json();
-      
+
       if (res.ok) {
-        setNewExpense(prev => ({
+        setFormData(prev => ({
           ...prev,
-          description: data.description || 'Gasto Extraído',
-          amount: data.amount || 0,
-          iva_rate: data.iva_rate || 21,
+          description: data.description || '',
+          provider: data.provider || '',
+          nif: data.nif || '',
           date: data.date || new Date().toISOString().split('T')[0],
           category: data.category || 'Varios',
-          ticket_image_url: data.ticket_image_url
+          base: data.base_amount || 0,
+          iva: data.iva_amount || 0,
+          total: data.amount || 0,
+          iva_rate: data.iva_rate || 21,
         }));
       } else {
-         setOcrError(data.error || 'La IA no pudo procesar este ticket. Introduce los datos manualmente.');
+        setOcrError(data.error || 'No se pudo leer el documento');
       }
     } catch (err) {
-      console.error('OCR Error:', err);
-      setOcrError('Fallo de conexión OCR. Por favor, introduce los datos a mano.');
+      setOcrError('Error de conexión con el servidor');
     } finally {
-      setIsOcrLoading(false);
-      // Reset input value to allow selecting same file again
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setScanning(false);
+      e.target.value = ''; // Reset file input
     }
   };
 
-  const handleAdd = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const rate = (newExpense.iva_rate || 0);
-      const total = (newExpense.amount || 0);
-      const iva_amount = total - (total / (1 + (rate / 100)));
       await fetch('/api/expenses', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ ...newExpense, iva_amount })
+        body: JSON.stringify({
+          description: formData.description,
+          provider: formData.provider,
+          nif: formData.nif,
+          date: formData.date,
+          category: formData.category,
+          base_amount: formData.base,
+          iva_amount: formData.iva,
+          amount: formData.total, // total amount
+          iva_rate: formData.iva_rate,
+        })
       });
-      setShowAddModal(false);
-      setNewExpense({ description: '', amount: 0, iva_rate: 21, category: 'Varios', date: new Date().toISOString().split('T')[0] });
-      setOcrError(null);
+      setFormData({
+        description: '', provider: '', nif: '', date: new Date().toISOString().split('T')[0],
+        category: 'Varios', base: 0, iva: 0, total: 0, iva_rate: 21,
+      });
       fetchExpenses();
     } catch (err) {
       console.error('Error adding expense:', err);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Eliminar este gasto de forma permanente?')) return;
-    try {
-      const token = localStorage.getItem('token');
-      await fetch(`/api/expenses/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      fetchExpenses();
-    } catch (err) {
-      console.error('Error deleting expense:', err);
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-24 lg:pb-8">
-      <div className="flex items-center justify-between mb-6 px-2">
-        <h2 className="text-2xl font-black text-white tracking-tighter">Bóveda de Gastos</h2>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:scale-105 active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest"
-        >
-          <Plus size={14} strokeWidth={3} /> Nuevo Gasto
-        </button>
+    <div className="space-y-4 max-w-4xl mx-auto pb-6">
+      <div className="flex items-center gap-4 mb-4">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-xl rotate-3 bg-gradient-to-br from-indigo-500 to-purple-600 border border-indigo-500/20">
+          <Receipt size={22} />
+        </div>
+        <div>
+          <h2 className="text-2xl font-black text-white tracking-tighter">Gastos (OCR 2.0)</h2>
+          <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.4em] mt-1">Escaneo y Registro Rápido</p>
+        </div>
       </div>
 
-      <div className="space-y-3">
-        {loading ? (
-          <div className="text-center py-20 bg-white/5 rounded-[2rem] border border-white/5">
-             <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin mx-auto mb-4" />
-             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Sincronizando Bóveda...</p>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Escáner IA - Compacto */}
+        <Card className="md:col-span-1 p-5 flex flex-col justify-center gap-4 bg-white/5 backdrop-blur-md border border-white/10" accent="none">
+          <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 mb-2">
+            <Zap size={14} className="text-amber-400" /> Auto-Completar con IA
+          </h3>
+          
+          <label className="relative cursor-pointer group flex-1">
+            <div className={`w-full h-full min-h-[140px] rounded-2xl flex flex-col items-center justify-center overflow-hidden border-2 border-dashed transition-all relative z-10 ${scanning ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-white/10 group-hover:border-indigo-500/50 bg-slate-900 group-hover:bg-slate-800'}`}>
+              
+              <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleScan} disabled={scanning} />
+              
+              {scanning ? (
+                <div className="flex flex-col items-center gap-3 text-indigo-400 px-4 text-center">
+                  <Scan size={32} className="animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Analizando con IA...</span>
+                  <span className="text-[9px] text-indigo-300/60 font-bold">Puede tardar unos segundos</span>
+                </div>
+              ) : ocrError ? (
+                <div className="flex flex-col items-center gap-2 text-rose-400 px-4 text-center">
+                  <AlertCircle size={24} />
+                  <span className="text-[10px] font-black leading-snug">{ocrError}</span>
+                  <span className="text-[9px] text-slate-500 font-bold">Toca para intentar de nuevo</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-slate-400 group-hover:text-indigo-400 transition-colors px-4 text-center">
+                  <Scan size={28} />
+                  <div className="space-y-0.5">
+                    <span className="block text-xs font-black">Subir Ticket o Factura</span>
+                    <span className="block text-[8px] font-bold uppercase tracking-widest text-slate-500">PDF · PNG · JPG</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </label>
+        </Card>
+
+        {/* Formulario Manual - Compacto */}
+        <Card className="md:col-span-2 p-5 space-y-4 bg-white/5 backdrop-blur-md border border-white/10" accent="none">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InputField label="Concepto" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Ej. Restaurante Manolo" />
+            <InputField label="Proveedor" value={formData.provider} onChange={e => setFormData({...formData, provider: e.target.value})} placeholder="Ej. Restaurante Manolo S.L." />
+            <InputField label="NIF" value={formData.nif} onChange={e => setFormData({...formData, nif: e.target.value})} placeholder="Ej. B12345678" />
+            <InputField label="Fecha" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} type="date" />
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Clasificación</label>
+              <div className="relative">
+                 <select 
+                   value={formData.category}
+                   onChange={e => setFormData({...formData, category: e.target.value})}
+                   className="w-full px-4 py-2.5 bg-slate-900 border border-white/5 rounded-xl outline-none focus:bg-slate-800 transition-all font-bold text-white text-xs appearance-none cursor-pointer"
+                 >
+                   <option>Varios</option>
+                   <option>Tecnología</option>
+                   <option>Suministros</option>
+                   <option>Transporte</option>
+                   <option>Formación</option>
+                   <option>Comidas</option>
+                 </select>
+                 <ChevronUp className="absolute right-4 top-1/2 -translate-y-1/2 rotate-180 text-slate-600 pointer-events-none" size={14} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">IVA Deducible</label>
+              <div className="relative">
+                 <select 
+                   value={formData.iva_rate}
+                   onChange={e => handleNumberChange('iva_rate', e.target.value)}
+                   className="w-full px-4 py-2.5 bg-slate-900 border border-white/5 rounded-xl outline-none focus:bg-slate-800 transition-all font-bold text-white text-xs appearance-none cursor-pointer"
+                 >
+                   <option value={21}>21% General</option>
+                   <option value={10}>10% Reducido</option>
+                   <option value={4}>4% Superred.</option>
+                   <option value={0}>0% Exento</option>
+                 </select>
+                 <ChevronUp className="absolute right-4 top-1/2 -translate-y-1/2 rotate-180 text-slate-600 pointer-events-none" size={14} />
+              </div>
+            </div>
           </div>
-        ) : expenses.length === 0 ? (
-          <div className="glass rounded-[2rem] p-16 text-center border-dashed border-white/10">
-             <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-700 border border-white/5 shadow-inner">
-               <Receipt size={32} />
-             </div>
-             <p className="text-sm font-black text-slate-400 uppercase tracking-widest font-mono">Vacío / Null</p>
-             <p className="text-[10px] text-slate-600 font-bold mt-2">No hay gastos deducibles registrados en este periodo.</p>
+          <div className="grid grid-cols-3 gap-3 pt-2">
+                 <InputField label="Base (€)" value={formData.base} onChange={e => handleNumberChange('base', e.target.value)} type="number" />
+                 <InputField label="IVA (€)" value={formData.iva} onChange={e => handleNumberChange('iva', e.target.value)} type="number" />
+                 <div className="space-y-1.5 px-1 relative">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total (€)</label>
+                    <input type="number" value={formData.total} readOnly className="w-full bg-indigo-500/10 border border-indigo-500/20 py-2.5 rounded-xl font-black text-indigo-400 outline-none px-4 text-sm" />
+                 </div>
+              </div>
+          
+
+          <button 
+            type="submit" 
+            disabled={saving}
+            className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-[1.25rem] shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:scale-105 active:scale-95 transition-all text-[11px] font-black uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-3 mt-4"
+          >
+            {saving ? <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Save size={16} />}
+            Registrar Gasto
+          </button>
+        </Card>
+      </form>
+
+      {/* Listado Compacto */}
+      <Card className="p-0 overflow-hidden bg-white/5 backdrop-blur-md border border-white/10" accent="none">
+        <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/5">
+           <h3 className="text-sm font-black text-white uppercase tracking-widest">Últimos Gastos</h3>
+        </div>
+        {loading ? (
+          <div className="text-center py-10">
+             <Loader2 className="animate-spin text-slate-500 mx-auto" size={24} />
+             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-3">Cargando gastos...</p>
+          </div>
+        ) : expenses.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-[9px] font-black uppercase tracking-widest text-slate-500 border-b border-white/5">
+                  <th className="px-5 py-3">Fecha</th>
+                  <th className="px-5 py-3">Concepto / Proveedor</th>
+                  <th className="px-5 py-3">Categoría</th>
+                  <th className="px-5 py-3 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.map((exp) => (
+                  <tr key={exp.id} className="border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors">
+                    <td className="px-5 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{new Date(exp.date).toLocaleDateString()}</td>
+                    <td className="px-5 py-3">
+                       <p className="font-bold text-white text-sm truncate max-w-[200px]">{exp.description}</p>
+                       <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">NIF: {exp.nif || '---'}</p>
+                    </td>
+                    <td className="px-5 py-3">
+                       <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${exp.category === 'Otros' ? 'bg-slate-800 text-slate-400' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'}`}>
+                         {exp.category}
+                       </span>
+                    </td>
+                    <td className="px-5 py-3 text-right font-black text-white text-sm tracking-tighter">{formatEuro(exp.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             {expenses.map((exp) => (
-               <Card key={exp.id} className="p-4 flex items-center gap-4 group hover:border-purple-500/20" accent="none" interactive>
-                 <div className="w-12 h-12 bg-slate-900 text-purple-400/80 rounded-xl flex items-center justify-center border border-white/5 shadow-inner group-hover:text-purple-400 transition-colors shrink-0">
-                   {exp.ticket_image_url ? <ImageIcon size={20} /> : <Receipt size={20} />}
-                 </div>
-                 <div className="flex-1 min-w-0">
-                   <p className="font-bold text-slate-200 text-sm tracking-tight truncate mb-1">{exp.description}</p>
-                   <div className="flex items-center gap-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                     <span className="bg-purple-500/10 text-purple-300 px-2 py-0.5 rounded-md border border-purple-500/20">{exp.category}</span>
-                     <span className="flex items-center gap-1"><Calendar size={10} className="text-slate-600" /> {exp.date}</span>
-                   </div>
-                 </div>
-                 <div className="text-right flex items-center gap-4 shrink-0">
-                   <div className="text-right">
-                     <p className="text-xl font-black text-white tracking-tighter tabular-nums">{formatEuro(exp.amount)}</p>
-                   </div>
-                   <button 
-                     onClick={() => exp.id && handleDelete(exp.id)}
-                     className="p-2.5 bg-slate-900 rounded-lg text-slate-600 hover:text-rose-400 transition-all opacity-0 group-hover:opacity-100 border border-transparent hover:border-rose-500/20"
-                   >
-                     <Trash2 size={16} />
-                   </button>
-                 </div>
-               </Card>
-             ))}
+          <div className="p-10 text-center flex flex-col items-center justify-center text-slate-500">
+             <Receipt size={40} className="mb-4 opacity-20" />
+             <p className="text-sm font-bold">No hay gastos registrados aún.</p>
           </div>
         )}
-      </div>
-
-      <AnimatePresence>
-        {showAddModal && (
-          <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex flex-col items-center justify-center p-4">
-            <motion.div 
-               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-               onClick={() => setShowAddModal(false)}
-               className="absolute inset-0"
-            />
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#0f172a] border border-white/10 w-full max-w-2xl rounded-[2rem] p-8 shadow-[0_0_80px_rgba(168,85,247,0.15)] relative z-10 overflow-y-auto max-h-[90vh]"
-            >
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                   <h3 className="text-xl font-black text-white tracking-tight">Registro de Ingreso/Gasto</h3>
-                   <p className="text-[9px] text-purple-400 font-black uppercase tracking-widest mt-1 flex items-center gap-1">
-                     <Zap size={10} fill="currentColor" /> Análisis OCR Directo
-                   </p>
-                </div>
-                <button onClick={() => setShowAddModal(false)} className="p-2 bg-white/5 rounded-xl text-slate-500 hover:text-white transition-all border border-white/5 hover:bg-white/10">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="mb-8">
-                 <input ref={fileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleFileUpload} />
-                 <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isOcrLoading}
-                    className="w-full py-8 bg-slate-900 border-2 border-dashed border-purple-500/20 hover:border-purple-500/40 rounded-[1.5rem] flex flex-col items-center justify-center gap-3 transition-all group relative overflow-hidden"
-                  >
-                    {isOcrLoading && <div className="absolute inset-0 bg-purple-500/10 animate-pulse" />}
-                    {isOcrLoading ? (
-                       <Loader2 className="animate-spin text-purple-400 relative z-10" size={36} />
-                    ) : (
-                       <Scan className="text-purple-400 group-hover:scale-110 transition-transform relative z-10" size={36} />
-                    )}
-                    <div className="text-center relative z-10">
-                       <span className="font-black uppercase text-[10px] tracking-widest text-slate-300">{isOcrLoading ? 'Procesando ticket...' : 'Auto-Scaneo de Ticket'}</span>
-                       {!isOcrLoading && <p className="text-[9px] text-slate-600 mt-1 uppercase tracking-widest font-bold">Subir foto para rellenar campos auto</p>}
-                    </div>
-                 </button>
-                 {ocrError && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-3">
-                       <AlertCircle size={16} className="text-rose-400 shrink-0" />
-                       <p className="text-[10px] font-black uppercase tracking-widest text-rose-300">{ocrError}</p>
-                    </motion.div>
-                 )}
-              </div>
-
-              <div className="space-y-5">
-                <CompactField label="Concepto / Comercio" value={newExpense.description || ''} onChange={v => setNewExpense({...newExpense, description: v})} placeholder="Ej. Restaurante Manolo..." autoFocus />
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-slate-500 ml-1">Importe Bruto</label>
-                    <div className="relative">
-                      <Euro className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
-                      <input 
-                        type="number" step="0.01" value={newExpense.amount}
-                        onChange={e => setNewExpense({...newExpense, amount: parseFloat(e.target.value)})}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-white/5 rounded-xl outline-none focus:bg-slate-800 transition-all font-black text-white tracking-tighter text-sm box-border"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-slate-500 ml-1">IVA Deducible</label>
-                    <div className="relative">
-                       <select 
-                         value={newExpense.iva_rate}
-                         onChange={e => setNewExpense({...newExpense, iva_rate: parseInt(e.target.value)})}
-                         className="w-full px-4 py-3 bg-slate-900 border border-white/5 rounded-xl outline-none focus:bg-slate-800 transition-all font-bold text-white text-xs appearance-none cursor-pointer"
-                       >
-                         <option value={21}>21% General</option>
-                         <option value={10}>10% Reducido</option>
-                         <option value={4}>4% Superred.</option>
-                         <option value={0}>0% Exento</option>
-                       </select>
-                       <ChevronUp className="absolute right-4 top-1/2 -translate-y-1/2 rotate-180 text-slate-600 pointer-events-none" size={14} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                   <CompactField type="date" label="Fecha" value={newExpense.date || ''} onChange={v => setNewExpense({...newExpense, date: v})} />
-                  <div className="space-y-1.5">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-slate-500 ml-1">Clasificación</label>
-                    <div className="relative">
-                       <select 
-                         value={newExpense.category}
-                         onChange={e => setNewExpense({...newExpense, category: e.target.value})}
-                         className="w-full px-4 py-3 bg-slate-900 border border-white/5 rounded-xl outline-none focus:bg-slate-800 transition-all font-bold text-white text-xs appearance-none cursor-pointer"
-                       >
-                         <option>Varios</option>
-                         <option>Tecnología</option>
-                         <option>Suministros</option>
-                         <option>Transporte</option>
-                         <option>Formación</option>
-                         <option>Comidas</option>
-                       </select>
-                       <ChevronUp className="absolute right-4 top-1/2 -translate-y-1/2 rotate-180 text-slate-600 pointer-events-none" size={14} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                   <button 
-                     onClick={handleAdd}
-                     className="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
-                   >
-                     <CheckCircle2 size={16} /> Confirmar Asiento
-                   </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      </Card>
     </div>
   );
 }
 
-function CompactField({ label, value, onChange, type = 'text', placeholder = '', autoFocus = false }: { label: string, value: string, onChange: (v: string) => void, type?: string, placeholder?: string, autoFocus?: boolean }) {
+function InputField({ label, value, onChange, placeholder = '', type = 'text', prefix }: any) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-[8px] font-black uppercase tracking-widest text-slate-500 ml-1">{label}</label>
-      <input 
-        type={type} value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        autoFocus={autoFocus}
-        className="w-full px-4 py-3 bg-slate-900 border border-white/5 rounded-xl outline-none focus:bg-slate-800 transition-all font-bold text-slate-200 placeholder:text-slate-700 text-xs shadow-inner"
-      />
+    <div className="space-y-1.5 px-1 relative">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+      <div className="relative">
+        {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">{prefix}</span>}
+        <input
+          type={type}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          onFocus={e => e.target.removeAttribute('readonly')}
+          className={`w-full bg-slate-900 border border-white/5 py-2.5 rounded-xl font-bold text-slate-200 outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-all text-sm ${prefix ? 'pl-8' : 'px-4'}`}
+        />
+      </div>
     </div>
   );
 }

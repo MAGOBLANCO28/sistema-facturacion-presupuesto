@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Eye, 
-  EyeOff, 
-  TrendingUp, 
-  Receipt, 
-  Scale, 
+import {
+  TrendingUp,
+  Receipt,
+  Scale,
   ArrowUpRight,
   ArrowDownRight,
   ShieldCheck,
-  CheckCircle2,
-  AlertCircle,
   RefreshCw,
-  TrendingDown,
   Zap,
   Clock,
-  Wallet
+  Wallet,
+  FileText,
+  Activity,
+  BarChart3,
 } from 'lucide-react';
 import Card from './common/Card';
 
@@ -30,180 +28,260 @@ interface ReportData {
 
 const formatEuro = (amount: number | undefined) => {
   if (typeof amount !== 'number') return '0,00 €';
-  return new Intl.NumberFormat('es-ES', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount);
+  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
+};
+
+const formatDate = (dateString: string) => {
+  if (!dateString) return '—';
+  try {
+    return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(new Date(dateString));
+  } catch { return dateString; }
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  'Pagada':        'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+  'Emitida':       'bg-blue-500/15 text-blue-400 border-blue-500/20',
+  'Borrador':      'bg-white/10 text-slate-400 border-white/10',
+  'Pendiente':     'bg-amber-500/15 text-amber-400 border-amber-500/20',
+  'Convertido':    'bg-purple-500/15 text-purple-400 border-purple-500/20',
+  'Rectificativa': 'bg-rose-500/15 text-rose-400 border-rose-500/20',
+  'Aceptado':      'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+  'Rechazado':     'bg-rose-500/15 text-rose-400 border-rose-500/20',
 };
 
 export default function DashboardView() {
   const [report, setReport] = useState<ReportData | null>(null);
   const [hideAmounts, setHideAmounts] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [pendingCollection, setPendingCollection] = useState(0);
+  const [recentDocs, setRecentDocs] = useState<any[]>([]);
 
   useEffect(() => {
     fetchReport();
-    fetchPending();
+    fetchDocuments();
   }, []);
 
   const fetchReport = async () => {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch('/api/reports/real-income', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
       });
       const data = await res.json();
       if (res.ok) setReport(data);
-      else setError(data.error);
-    } catch (err) {
-      setError('Error de conexión');
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
+    finally { setLoading(false); }
   };
 
-  const fetchPending = async () => {
+  const fetchDocuments = async () => {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch('/api/documents', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
       });
       const docs = await res.json();
+      if (!Array.isArray(docs)) return;
       const pending = docs
         .filter((d: any) => d.type === 'invoice' && d.status !== 'Pagada' && d.status !== 'Rectificativa')
-        .reduce((acc: number, d: any) => acc + d.total, 0);
+        .reduce((acc: number, d: any) => acc + (d.total || 0), 0);
       setPendingCollection(pending);
-    } catch (err) {
-      console.error(err);
-    }
+      setRecentDocs(docs.slice(0, 6));
+    } catch {}
   };
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-64 gap-3">
-       <RefreshCw className="animate-spin text-purple-500" size={32} />
-       <p className="text-slate-500 font-black animate-pulse uppercase tracking-[0.4em] text-[10px]">Sincronizando Módulo Deep Space...</p>
+      <RefreshCw className="animate-spin text-purple-500" size={32} />
+      <p className="text-slate-500 font-black animate-pulse uppercase tracking-[0.4em] text-[10px]">Sincronizando...</p>
     </div>
   );
 
-  if (!report) return null;
-
-  const alerts = [];
-  if (report.ivaToPay > 3000) alerts.push("Alerta Fiscal: Reserva de IVA elevada.");
-  if (report.totalExpense < report.totalIncome * 0.1) alerts.push("Sugerencia: Revisa tus gastos deducibles.");
-  
-  const hasNotifications = alerts.length > 0;
+  const dr = report || { totalIncome: 0, totalExpense: 0, ivaToPay: 0, irpfProvision: 0, realSalary: 0, netProfit: 0 };
+  const marginPct = dr.totalIncome > 0 ? Math.round((dr.netProfit / dr.totalIncome) * 100) : 0;
+  const alerts: string[] = [];
+  if (dr.ivaToPay > 3000) alerts.push('Alerta Fiscal: Reserva de IVA elevada (>3.000€).');
+  if (dr.totalExpense < dr.totalIncome * 0.1 && dr.totalIncome > 0) alerts.push('Sugerencia: Revisa tus gastos deducibles.');
 
   return (
-    <div className="space-y-6 pb-24">
-      {/* Metrics Grid Header */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 p-8 relative overflow-hidden h-64 flex flex-col justify-between" accent="purple">
-           <div className="absolute top-0 right-0 p-8 opacity-10 -rotate-12 scale-150 pointer-events-none text-purple-500">
-             <TrendingUp size={140} />
-           </div>
-           <div>
-              <div className="flex items-center gap-3 mb-4">
-                 <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center border border-purple-500/20">
-                    <Zap size={16} className="text-purple-400" />
-                 </div>
-                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Liquidez Real Disponible</p>
+    <div className="space-y-4 pb-8 max-w-5xl mx-auto">
+
+      {/* KPI Principal */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2 p-6 relative overflow-hidden flex flex-col justify-between" accent="purple">
+          <div className="absolute top-0 right-0 p-8 opacity-[0.04] -rotate-12 scale-150 pointer-events-none text-purple-300">
+            <TrendingUp size={140} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-purple-500/20 flex items-center justify-center border border-purple-500/20">
+                  <Zap size={12} className="text-purple-400" />
+                </div>
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-400">Liquidez Real Disponible</p>
               </div>
-              <h3 className="text-6xl font-black tracking-tighter tabular-nums text-white">
-                {hideAmounts ? '••••••' : formatEuro(report.realSalary)}
-              </h3>
-           </div>
-           <div className="flex gap-8 mt-4">
-              <div className="space-y-1">
-                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <ArrowUpRight size={12} className="text-emerald-400" /> Ingresos Brutos
-                 </p>
-                 <p className="text-sm font-bold text-white tabular-nums tracking-tight">
-                    {hideAmounts ? '•••' : formatEuro(report.totalIncome)}
-                 </p>
-              </div>
-              <div className="space-y-1">
-                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <ArrowDownRight size={12} className="text-rose-400" /> Gastos Totales
-                 </p>
-                 <p className="text-sm font-bold text-white tabular-nums tracking-tight">
-                    {hideAmounts ? '•••' : formatEuro(report.totalExpense)}
-                 </p>
-              </div>
-           </div>
+              <button
+                onClick={() => setHideAmounts(!hideAmounts)}
+                className="text-[9px] font-black text-slate-600 hover:text-slate-300 uppercase tracking-widest transition-colors px-2 py-1 rounded-lg hover:bg-white/5"
+              >
+                {hideAmounts ? 'MOSTRAR' : 'OCULTAR'}
+              </button>
+            </div>
+            <h3 className="text-5xl font-black tracking-tighter tabular-nums text-white leading-none">
+              {hideAmounts ? '••••••' : formatEuro(dr.realSalary)}
+            </h3>
+          </div>
+          <div className="flex gap-6 mt-4 pt-4 border-t border-white/5">
+            <div className="space-y-1">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                <ArrowUpRight size={10} className="text-emerald-400" /> Ingresos
+              </p>
+              <p className="text-sm font-bold text-white tabular-nums">{hideAmounts ? '•••' : formatEuro(dr.totalIncome)}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                <ArrowDownRight size={10} className="text-rose-400" /> Gastos
+              </p>
+              <p className="text-sm font-bold text-white tabular-nums">{hideAmounts ? '•••' : formatEuro(dr.totalExpense)}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                <BarChart3 size={10} className="text-blue-400" /> Margen
+              </p>
+              <p className={`text-sm font-bold tabular-nums ${marginPct >= 30 ? 'text-emerald-400' : marginPct >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                {marginPct}%
+              </p>
+            </div>
+          </div>
         </Card>
 
-        <Card className="p-8 flex flex-col justify-between h-64" accent="blue" interactive onClick={() => setHideAmounts(!hideAmounts)}>
-           <div>
-              <div className="flex items-center gap-3 mb-4">
-                 <div className="w-8 h-8 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/20">
-                    <Wallet size={16} className="text-blue-400" />
-                 </div>
-                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Pendiente de Cobro</p>
+        <Card className="p-6 flex flex-col justify-between" accent="blue" interactive onClick={() => setHideAmounts(!hideAmounts)}>
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded-lg bg-blue-500/20 flex items-center justify-center border border-blue-500/20">
+                <Wallet size={12} className="text-blue-400" />
               </div>
-              <h3 className="text-4xl font-black tracking-tighter tabular-nums text-white">
-                {hideAmounts ? '••••' : formatEuro(pendingCollection)}
-              </h3>
-           </div>
-           <div className="mt-auto">
-              <div className="flex items-center gap-2 text-[10px] font-black text-blue-400 uppercase tracking-widest animate-pulse">
-                 <Clock size={12} /> Facturas Abiertas
-              </div>
-           </div>
+              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-400">Pendiente Cobro</p>
+            </div>
+            <h3 className="text-3xl font-black tracking-tighter tabular-nums text-white">
+              {hideAmounts ? '••••' : formatEuro(pendingCollection)}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1.5 text-[9px] font-black text-blue-400 uppercase tracking-widest animate-pulse mt-3">
+            <Clock size={10} /> Facturas Abiertas
+          </div>
         </Card>
       </div>
 
-      {/* Secondary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-         <ProvisionCard 
-            icon={<Receipt size={20} />} 
-            label="Reserva IVA" 
-            amount={report.ivaToPay} 
-            color="purple" 
-            hidden={hideAmounts} 
-         />
-         <ProvisionCard 
-            icon={<Scale size={20} />} 
-            label="Provisión IRPF" 
-            amount={report.irpfProvision} 
-            color="amber" 
-            hidden={hideAmounts} 
-         />
-         <Card className="p-6 flex flex-col justify-between" accent="none" interactive>
-            <div className="flex items-center gap-3 mb-6">
-               <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 group-hover:scale-110 transition-all">
-                  <ShieldCheck size={20} className="text-slate-400" />
-               </div>
-               <div>
-                  <p className="text-xs font-black text-white uppercase tracking-tight">Compliance</p>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">VeriFactu Activo</p>
-               </div>
+      {/* Provisiones + Compliance */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <ProvisionCard icon={<Receipt size={14} />} label="Reserva IVA" amount={dr.ivaToPay} color="purple" hidden={hideAmounts} />
+        <ProvisionCard icon={<Scale size={14} />} label="Provisión IRPF" amount={dr.irpfProvision} color="amber" hidden={hideAmounts} />
+        <Card className="p-4 flex flex-col justify-between" accent="none">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/15">
+              <ShieldCheck size={14} className="text-emerald-400" />
             </div>
+            <div>
+              <p className="text-[10px] font-black text-white uppercase tracking-tight">VeriFactu</p>
+              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Activo 2026</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+            <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Integridad 100%</span>
+          </div>
+        </Card>
+      </div>
+
+      {/* Actividad Reciente + Beneficio */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2 p-0 overflow-hidden" accent="none">
+          <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/5">
             <div className="flex items-center gap-2">
-               <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-               <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Integridad 100%</span>
+              <Activity size={14} className="text-purple-400" />
+              <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Actividad Reciente</h3>
             </div>
-         </Card>
+            <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{recentDocs.length} docs</span>
+          </div>
+          {recentDocs.length === 0 ? (
+            <div className="p-10 text-center">
+              <FileText size={32} className="mx-auto text-slate-700 mb-3" />
+              <p className="text-sm font-bold text-slate-600">Sin actividad aún</p>
+              <p className="text-[10px] text-slate-700 uppercase tracking-widest mt-1">Crea tu primera factura</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {recentDocs.map((doc: any) => (
+                <div key={doc.id} className="flex items-center gap-4 px-5 py-3 hover:bg-white/5 transition-colors">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${doc.type === 'invoice' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/15' : 'bg-amber-500/15 text-amber-400 border border-amber-500/15'}`}>
+                    <FileText size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-black text-white tabular-nums">{doc.number}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border ${STATUS_COLORS[doc.status] || 'bg-white/5 text-slate-400 border-white/10'}`}>
+                        {doc.status}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-bold truncate">{doc.client_name || '—'}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-black text-white tabular-nums">{formatEuro(doc.total)}</p>
+                    <p className="text-[9px] text-slate-600 font-bold">{formatDate(doc.date)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <div className="space-y-4">
+          <Card className="p-5" accent="purple">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+              <BarChart3 size={10} className="text-purple-400" /> Beneficio Neto
+            </p>
+            <p className="text-2xl font-black text-white tabular-nums tracking-tighter">
+              {hideAmounts ? '••••' : formatEuro(dr.netProfit)}
+            </p>
+            <div className="mt-3">
+              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-1000"
+                  style={{ width: `${Math.min(Math.max(marginPct, 0), 100)}%` }}
+                />
+              </div>
+              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1.5">Margen {marginPct}%</p>
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/5 border-indigo-500/20" accent="none">
+            <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2 flex items-center gap-2">
+              <Zap size={10} /> Consejo Fiscal
+            </p>
+            <p className="text-[10px] text-slate-300 font-bold leading-relaxed">
+              {dr.ivaToPay > 0
+                ? `Reserva ${formatEuro(dr.ivaToPay)} para la próxima liquidación de IVA.`
+                : 'Registra gastos deducibles para reducir tu carga fiscal trimestral.'}
+            </p>
+          </Card>
+        </div>
       </div>
 
-      {/* Conditional AI Suggestions */}
+      {/* Sugerencias IA */}
       <AnimatePresence>
-        {hasNotifications && (
+        {alerts.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}>
-            <Card className="p-6 border-purple-500/30 bg-purple-500/5 backdrop-blur-3xl" accent="purple">
+            <Card className="p-5 border-purple-500/30 bg-purple-500/5" accent="purple">
               <div className="flex items-start gap-4">
-                 <div className="w-10 h-10 bg-purple-500 text-white rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.4)] shrink-0">
-                    <Zap size={20} />
-                 </div>
-                 <div className="space-y-2">
-                    <h4 className="text-[10px] font-black text-purple-300 uppercase tracking-[0.3em]">IA Fiscal Sugerencia</h4>
-                    <div className="space-y-1">
-                       {alerts.map((msg, idx) => (
-                         <p key={idx} className="text-xs font-bold text-slate-200">· {msg}</p>
-                       ))}
-                    </div>
-                 </div>
+                <div className="w-9 h-9 bg-purple-500 text-white rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.4)] shrink-0">
+                  <Zap size={16} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-[9px] font-black text-purple-300 uppercase tracking-[0.3em]">IA Fiscal</h4>
+                  {alerts.map((msg, idx) => (
+                    <p key={idx} className="text-xs font-bold text-slate-200">· {msg}</p>
+                  ))}
+                </div>
               </div>
             </Card>
           </motion.div>
@@ -213,24 +291,19 @@ export default function DashboardView() {
   );
 }
 
-function ProvisionCard({ icon, label, amount, color, hidden }: { icon: React.ReactNode, label: string, amount: number, color: 'purple' | 'amber', hidden: boolean }) {
-  const accentColor = color === 'purple' ? 'text-purple-400 bg-purple-500/10 border-purple-500/10' : 'text-amber-400 bg-amber-500/10 border-amber-500/10';
-  const shadowColor = color === 'purple' ? 'hover:shadow-purple-500/20' : 'hover:shadow-amber-500/20';
-
+function ProvisionCard({ icon, label, amount, color, hidden }: { icon: React.ReactNode; label: string; amount: number; color: 'purple' | 'amber'; hidden: boolean }) {
+  const colors = color === 'purple'
+    ? 'text-purple-400 bg-purple-500/10 border-purple-500/15'
+    : 'text-amber-400 bg-amber-500/10 border-amber-500/15';
   return (
-    <Card className={`p-6 flex flex-col gap-4 group ${shadowColor}`} interactive accent={color}>
-      <div className="flex items-center gap-3">
-         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${accentColor}`}>
-            {icon}
-         </div>
-         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{label}</p>
+    <Card className="p-4 flex flex-col gap-2" interactive accent={color}>
+      <div className="flex items-center gap-2">
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${colors}`}>{icon}</div>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{label}</p>
       </div>
-      <div>
-         <p className="text-3xl font-black text-white tabular-nums tracking-tighter">
-            {hidden ? '••••' : formatEuro(amount)}
-         </p>
-         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1 opacity-60">Impacto en Sueldo Neto</p>
-      </div>
+      <p className="text-2xl font-black text-white tabular-nums tracking-tighter">
+        {hidden ? '••••' : formatEuro(amount)}
+      </p>
     </Card>
   );
 }

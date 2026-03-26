@@ -21,6 +21,7 @@ import DashboardView from './components/DashboardView';
 import ExpensesView from './components/ExpensesView';
 import BudgetsView from './components/BudgetsView';
 import Header from './components/common/Header';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 const AMBER = '#F59E0B'; // For Budgets
 
@@ -123,7 +124,7 @@ export default function App() {
     }
   };
 
-  if (!token) return <AuthView onLogin={handleLogin} />;
+  if (!token) return <ErrorBoundary><AuthView onLogin={handleLogin} /></ErrorBoundary>;
 
   const handleCreateNew = (type: DocumentType) => {
     setDocType(type);
@@ -132,6 +133,7 @@ export default function App() {
   };
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen bg-[#0f172a] flex text-slate-100 font-sans selection:bg-purple-500/30">
       {/* Desktop Sidebar */}
       <aside
@@ -162,10 +164,22 @@ export default function App() {
         <div className="p-6 mt-auto">
           <button 
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-6 py-4 text-orange-400/60 hover:text-orange-400 hover:bg-orange-500/10 rounded-[1.5rem] transition-all font-black text-[10px] uppercase tracking-widest border border-transparent hover:border-orange-500/20"
+            className="w-full flex items-center gap-3 px-5 py-3 text-orange-400/60 hover:text-orange-400 hover:bg-orange-500/10 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest border border-transparent hover:border-orange-500/20 mb-6"
           >
             <LogOut size={18} /> Cerrar Sesión
           </button>
+
+          <div className="space-y-3 pt-6 border-t border-white/5">
+             <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">
+                  COMPLIANCE
+                </p>
+             </div>
+             <p className="text-[10px] font-bold text-slate-600 leading-tight">
+                Faktio 2026 · Ley de Trazabilidad VeriFactu
+             </p>
+          </div>
         </div>
       </aside>
 
@@ -237,17 +251,6 @@ export default function App() {
             )}
           </AnimatePresence>
         </div>
-
-        {/* Global VeriFactu Disclaimer */}
-        <div className="fixed bottom-0 right-0 left-0 lg:left-72 glass border-t border-white/5 px-8 py-3 z-30 flex flex-col md:flex-row items-center justify-between gap-2">
-           <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse" />
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center md:text-left transition-colors">
-                Faktio 2026 cumple con la Ley de Trazabilidad VeriFactu.
-              </p>
-           </div>
-           <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">v1.3 // DEEP SPACE</p>
-        </div>
       </main>
 
       {/* Mobile Bottom Navigation */}
@@ -264,6 +267,7 @@ export default function App() {
         <MobileNavItem icon={<SettingsIcon size={24} />} active={view === 'settings'} onClick={() => setView('settings')} />
       </nav>
     </div>
+    </ErrorBoundary>
   );
 }
 

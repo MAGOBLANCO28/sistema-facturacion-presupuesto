@@ -36,10 +36,17 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB máximo
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB máximo (cubre PDFs grandes)
   fileFilter: (_req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'];
-    cb(null, allowed.includes(file.mimetype));
+    const allowed = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'application/pdf'
+    ];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Formato no soportado: ${file.mimetype}. Usa JPG, PNG, WEBP o PDF.`));
+    }
   },
 });
 
@@ -421,58 +428,92 @@ async function startServer() {
   });
 
   // ── OCR INTELIGENTE (Gemini Vision) ────────────────
-  app.post("/api/expenses/ocr", authMiddleware, upload.single("ticket"), async (req: any, res) => {
-    if (!req.file) return res.status(400).json({ error: "No se subió ningún archivo" });
+  app.post("/api/expenses/ocr", authMiddleware, (req: any, res: any, next: any) => {
+    upload.single("ticket")(req, res, (err: any) => {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: `Archivo demasiado grande. Máximo 20MB permitido.` });
+      } else if (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      next();
+    });
+  }, async (req: any, res: any) => {
+    if (!req.file) return res.status(400).json({ error: "No se recibió el archivo. Asegúrate de subir JPG, PNG, WEBP o PDF." });
 
     try {
-      const imageData = fs.readFileSync(req.file.path).toString("base64");
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const imageData = fileBuffer.toString("base64");
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
-      const prompt = `Analiza este ticket o factura de gasto de forma ultra-precisa para un sistema contable español.
-      Extrae EXACTAMENTE estos campos en un objeto JSON estricto:
-      {
-        "description": "nombre corto del establecimiento o proveedor",
-        "amount": número decimal de importe TOTAL con IVA (ej: 45.50),
-        "iva_rate": número entero de IVA (ej: 21, 10, 4 o 0),
-        "date": "YYYY-MM-DD",
-        "category": "elegir: Tecnología, Suministros, Transporte, Formación, Comidas, Varios"
-      }
-      Reglas críticas: 
-      1. Si no hay IVA claro o no se ve desglose, pon 0 o deduce según el caso.
-      2. RESPONDE EXCLUSIVAMENTE CON EL TEXTO JSON COMPATIBLE CON EXTRACCIÓN DIRECTA. NO uses caracteres fuera de especificación.`;
+      const prompt = `Eres un asistente contable español experto. Analiza este documento (puede ser un ticket de compra, factura o albarán) y extrae los datos fiscales.
+
+Devuelve ÚNICAMENTE un objeto JSON válido con estos campos exactos (sin texto adicional, sin markdown):
+{
+  "description": "concepto del gasto o nombre del establecimiento (máx 60 chars)",
+  "provider": "razón social del proveedor si aparece, si no usa description",
+  "nif": "NIF o CIF del proveedor si aparece, si no pon null",
+  "amount": importe total con IVA como número decimal (ej: 45.50),
+  "base_amount": base imponible sin IVA como número decimal,
+  "iva_rate": tipo de IVA como entero (21, 10, 4 o 0),
+  "iva_amount": cuota de IVA como número decimal,
+  "date": "fecha en formato YYYY-MM-DD",
+  "category": "una de: Tecnología, Suministros, Transporte, Formación, Comidas, Varios"
+}
+
+Reglas:
+- Si no hay desglose de IVA visible, calcula asumiendo 21% sobre el total
+- Si la fecha no aparece, usa la fecha de hoy: ${new Date().toISOString().split('T')[0]}
+- SOLO devuelve el JSON, sin explicaciones ni texto antes o después`;
 
       const result = await model.generateContent([
         prompt,
-        {
-          inlineData: {
-            data: imageData,
-            mimeType: req.file.mimetype
-          }
-        }
+        { inlineData: { data: imageData, mimeType: req.file.mimetype } }
       ]);
 
       const text = result.response.text().trim();
-      // Limpieza de posibles bloques de código markdown
-      const cleanJson = text.replace(/```json|```/g, "").trim();
-      
-      let extractedData;
-      try {
-        extractedData = JSON.parse(cleanJson);
-      } catch (e) {
-        console.error("JSON Parse Error:", cleanJson);
-        throw new Error("La IA no devolvió un formato válido");
+      // Limpiar posible markdown o texto extra
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error("No JSON found in OCR response:", text);
+        throw new Error("La IA no devolvió datos válidos del documento");
       }
-      
-      // Calcular iva_amount si no viene (o recalcular para asegurar)
-      const iva_rate = extractedData.iva_rate || 21;
-      const total = extractedData.amount || 0;
-      extractedData.iva_amount = total - (total / (1 + (iva_rate / 100)));
-      extractedData.ticket_image_url = `/uploads/${req.file.filename}`;
 
-      res.json(extractedData);
+      let extracted: any;
+      try {
+        extracted = JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        console.error("JSON Parse Error:", jsonMatch[0]);
+        throw new Error("Error al interpretar la respuesta de la IA");
+      }
+
+      // Normalizar y calcular campos derivados
+      const total = parseFloat(extracted.amount) || 0;
+      const iva_rate = parseInt(extracted.iva_rate) || 21;
+      const base = parseFloat(extracted.base_amount) || parseFloat((total / (1 + iva_rate / 100)).toFixed(2));
+      const iva_amount = parseFloat(extracted.iva_amount) || parseFloat((total - base).toFixed(2));
+
+      const response = {
+        description: extracted.description || extracted.provider || "Gasto",
+        provider: extracted.provider || extracted.description || "",
+        nif: extracted.nif || "",
+        amount: total,
+        base_amount: base,
+        iva_rate,
+        iva_amount,
+        date: extracted.date || new Date().toISOString().split('T')[0],
+        category: extracted.category || "Varios",
+        ticket_image_url: `/uploads/${req.file.filename}`,
+      };
+
+      // Limpiar archivo temporal después de procesar
+      fs.unlink(req.file.path, () => {});
+
+      res.json(response);
     } catch (err: any) {
+      // Limpiar archivo en caso de error
+      if (req.file?.path) fs.unlink(req.file.path, () => {});
       console.error("Error OCR:", err);
-      res.status(500).json({ error: err.message || "Fallo en la extracción de datos" });
+      res.status(500).json({ error: err.message || "No se pudo extraer información del documento" });
     }
   });
 
