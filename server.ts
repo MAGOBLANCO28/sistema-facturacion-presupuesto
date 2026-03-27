@@ -809,7 +809,7 @@ Reglas de cálculo:
     });
   }
 
-  const PORT = 4000;
+  const PORT = parseInt(process.env.PORT || '7860', 10);
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Servidor en http://localhost:${PORT}`);
   });
