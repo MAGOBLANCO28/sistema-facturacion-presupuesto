@@ -181,6 +181,10 @@ async function startServer() {
 
   // Servir imágenes de logos y tickets
   app.use("/uploads", express.static(uploadsDir));
+  // Si express.static no encontró el archivo, devolver 404 (en vez de que Vite sirva index.html)
+  app.get("/uploads/*", (_req, res) => {
+    res.status(404).json({ error: "Archivo no encontrado" });
+  });
 
   // ── SEGURIDAD AVANZADA (Fase 2.2) ─────────────────
   
@@ -345,9 +349,20 @@ async function startServer() {
 
   // ── DOCUMENTS ─────────────────────────────────────
   app.get("/api/documents", authMiddleware, async (req: any, res) => {
+    const typeFilter = req.query.type as string | undefined;
+    const params: any[] = [req.tenantId];
+    let whereClause = 'd.tenant_id = $1';
+    if (typeFilter) {
+      params.push(typeFilter);
+      whereClause += ` AND d.type = $${params.length}`;
+    }
     const result = await pool.query(
-      "SELECT * FROM documents WHERE tenant_id = $1 ORDER BY created_at DESC",
-      [req.tenantId]
+      `SELECT d.*, orig.number AS original_invoice_number
+       FROM documents d
+       LEFT JOIN documents orig ON d.original_invoice_id = orig.id
+       WHERE ${whereClause}
+       ORDER BY d.created_at DESC`,
+      params
     );
     res.json(result.rows);
   });
@@ -404,29 +419,40 @@ async function startServer() {
     const tenantSettings = settingsRes.rows[0] || { account_type: 'autonomo', irpf_rate: 15 };
     const isAutonomo = tenantSettings.account_type !== 'sl';
 
-    // Facturas emitidas (Emitida o Pagada) — para calcular IVA repercutido e IRPF retenido
+    // Facturas emitidas/pagadas + abonos — IVA neto e IRPF retenido
+    // Los abonos tienen importes negativos → se descuentan automáticamente al sumar
     const invoicesRes = await pool.query(
       `SELECT
-        SUM(total) as total_bruto,
-        SUM(subtotal) as subtotal,
-        SUM(iva_amount) as iva_repercutido,
-        SUM(irpf_amount) as irpf_retenido,
-        SUM(total - COALESCE(irpf_amount,0)) as total_neto_cobrado
+        SUM(total)                             AS total_bruto,
+        SUM(subtotal)                          AS subtotal,
+        SUM(iva_amount)                        AS iva_repercutido,
+        SUM(irpf_amount)                       AS irpf_retenido,
+        SUM(total - COALESCE(irpf_amount,0))   AS total_neto_cobrado
        FROM documents
-       WHERE tenant_id = $1 AND type = 'invoice' AND status IN ('Pagada','Emitida')`,
+       WHERE tenant_id = $1
+         AND (
+           (type = 'invoice' AND status IN ('Emitida','Pagada'))
+           OR
+           (type = 'abono')
+         )`,
       [req.tenantId]
     );
 
-    // Solo facturas PAGADAS para liquidez real
+    // Facturas Pagadas + todos los abonos → base para liquidez real
     const paidRes = await pool.query(
       `SELECT
-        SUM(total) as total_bruto,
-        SUM(subtotal) as subtotal,
-        SUM(iva_amount) as iva_repercutido,
-        SUM(irpf_amount) as irpf_retenido,
-        SUM(total - COALESCE(irpf_amount,0)) as total_neto_cobrado
+        SUM(total)                             AS total_bruto,
+        SUM(subtotal)                          AS subtotal,
+        SUM(iva_amount)                        AS iva_repercutido,
+        SUM(irpf_amount)                       AS irpf_retenido,
+        SUM(total - COALESCE(irpf_amount,0))   AS total_neto_cobrado
        FROM documents
-       WHERE tenant_id = $1 AND type = 'invoice' AND status = 'Pagada'`,
+       WHERE tenant_id = $1
+         AND (
+           (type = 'invoice' AND status = 'Pagada')
+           OR
+           (type = 'abono')
+         )`,
       [req.tenantId]
     );
 
@@ -612,6 +638,7 @@ Reglas de cálculo:
 
       console.log("OCR extraído:", JSON.stringify({ nif: extracted.nif, amount: extracted.amount, base: extracted.base_amount, iva: extracted.iva_amount, date: extracted.date }));
 
+      // El archivo queda en /uploads para poder mostrarlo en el detalle del gasto
       const response = {
         description: extracted.description || extracted.provider || "Gasto",
         provider: extracted.provider || extracted.description || "",
@@ -624,9 +651,6 @@ Reglas de cálculo:
         category: extracted.category || "Varios",
         ticket_image_url: `/uploads/${req.file.filename}`,
       };
-
-      // Limpiar archivo temporal después de procesar
-      fs.unlink(req.file.path, () => {});
 
       res.json(response);
     } catch (err: any) {

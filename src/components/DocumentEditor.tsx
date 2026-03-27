@@ -125,6 +125,21 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
       const statusOverride = saveStatus || pendingSaveStatus.current;
       if (statusOverride) dataToSave.status = statusOverride as any;
       pendingSaveStatus.current = undefined;
+
+      // Los abonos siempre se emiten con importes negativos (nota de crédito)
+      if (type === 'abono') {
+        dataToSave.status = 'Emitida';
+        dataToSave.subtotal   = -Math.abs(dataToSave.subtotal);
+        dataToSave.iva_amount = -Math.abs(dataToSave.iva_amount);
+        dataToSave.total      = -Math.abs(dataToSave.total);
+        if (dataToSave.irpf_amount) dataToSave.irpf_amount = -Math.abs(dataToSave.irpf_amount);
+        dataToSave.items = dataToSave.items.map(item => ({
+          ...item,
+          total: -Math.abs(item.total),
+        }));
+        dataToSave.is_rectificative = true;
+      }
+
       const res = await fetch('/api/documents', {
         method: 'POST',
         headers: {
@@ -149,7 +164,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
     }
   };
 
-  const currentAccent = type === 'invoice' ? ACCENT : AMBER;
+  const currentAccent = type === 'invoice' ? ACCENT : type === 'abono' ? '#ef4444' : AMBER;
 
   return (
     <div className="bg-slate-900 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] border border-white/5 overflow-hidden max-w-4xl mx-auto flex flex-col">
@@ -161,7 +176,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
           </div>
           <div>
             <h2 className="text-2xl font-black tracking-tight leading-none mb-1 text-white">
-              {initialData ? 'Editar' : 'Nueva'} {type === 'invoice' ? 'Factura' : 'Presupuesto'}
+              {initialData ? 'Editar' : 'Nuevo'} {type === 'invoice' ? 'Factura' : type === 'abono' ? 'Abono' : 'Presupuesto'}
             </h2>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Módulo VeriFactu Pro</p>
           </div>
@@ -174,7 +189,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
           style={{ backgroundColor: currentAccent }}
         >
           {loading ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
-          <span>{type === 'invoice' ? 'Emitir Factura' : 'Guardar Presupuesto'}</span>
+          <span>{type === 'invoice' ? 'Emitir Factura' : type === 'abono' ? 'Emitir Abono' : 'Guardar Presupuesto'}</span>
         </button>
       </div>
 

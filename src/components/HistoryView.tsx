@@ -18,7 +18,8 @@ import {
   Download,
   ArrowRightCircle,
   Pencil,
-  XCircle
+  XCircle,
+  MinusCircle
 } from 'lucide-react';
 import { DocumentData, DocumentStatus } from '../types';
 import Card from './common/Card';
@@ -27,6 +28,7 @@ interface Props {
   onEdit: (doc: DocumentData) => void;
   onPreview: (doc: DocumentData) => void;
   onRectify?: (doc: DocumentData) => void;
+  onCreateAbono?: (doc: DocumentData) => void;
 }
 
 const authFetch = (url: string, options?: RequestInit) => {
@@ -68,7 +70,7 @@ const STATUS_CONFIG: Record<string, { label: string, color: string, bg: string }
   'Convertido': { label: 'Convertido', color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
 };
 
-export default function HistoryView({ onEdit, onPreview, onRectify }: Props) {
+export default function HistoryView({ onEdit, onPreview, onRectify, onCreateAbono }: Props) {
   const [documents, setDocuments] = useState<DocumentData[]>([]);
   const [activeTab, setActiveTab] = useState<'invoices' | 'quotes'>('invoices');
   const [searchTerm, setSearchTerm] = useState('');
@@ -281,7 +283,10 @@ export default function HistoryView({ onEdit, onPreview, onRectify }: Props) {
                      <div className="flex items-center gap-2">
                         <ActionButton icon={<Eye size={20} />} onClick={() => onPreview(doc)} title="Ver / Imprimir" />
                         {doc.type === 'invoice' && !doc.is_rectificative && doc.status !== 'Cancelada' ? (
-                          <ActionButton icon={<XCircle size={20} />} onClick={() => handleCancelInvoice(doc)} title="Cancelar (Crear Abono)" accent="rose" />
+                          <>
+                            <ActionButton icon={<MinusCircle size={20} />} onClick={() => onCreateAbono?.(doc)} title="Abono Parcial" accent="amber" />
+                            <ActionButton icon={<XCircle size={20} />} onClick={() => handleCancelInvoice(doc)} title="Cancelar (Abono Total)" accent="rose" />
+                          </>
                         ) : doc.type === 'quote' && doc.status !== 'Convertido' ? (
                           <>
                             <ActionButton icon={<Pencil size={20} />} onClick={() => onEdit(doc)} title="Editar" />
@@ -313,10 +318,11 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
    );
 }
 
-function ActionButton({ icon, onClick, title, danger, accent }: { icon: React.ReactNode, onClick: () => void, title: string, danger?: boolean, accent?: 'rose' | 'green' }) {
+function ActionButton({ icon, onClick, title, danger, accent }: { icon: React.ReactNode, onClick: () => void, title: string, danger?: boolean, accent?: 'rose' | 'green' | 'amber' }) {
   const colors = danger ? "hover:bg-rose-500/10 text-slate-600 hover:text-rose-400" :
-                 accent === 'rose' ? "hover:bg-rose-500/10 text-slate-600 hover:text-rose-400" :
+                 accent === 'rose'  ? "hover:bg-rose-500/10 text-slate-600 hover:text-rose-400" :
                  accent === 'green' ? "hover:bg-emerald-500/10 text-slate-600 hover:text-emerald-400" :
+                 accent === 'amber' ? "hover:bg-amber-500/10 text-slate-600 hover:text-amber-400" :
                  "hover:bg-white/10 text-slate-600 hover:text-white";
   return (
     <button onClick={onClick} className={`p-3 rounded-xl transition-all ${colors} border border-transparent hover:border-white/5 shadow-2xl`} title={title}>

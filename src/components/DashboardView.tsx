@@ -87,8 +87,9 @@ export default function DashboardView() {
       });
       const docs = await res.json();
       if (!Array.isArray(docs)) return;
+      // Solo facturas Emitidas (sin pagar, sin cancelar) → pendiente de cobro real
       const pending = docs
-        .filter((d: any) => d.type === 'invoice' && d.status !== 'Pagada' && d.status !== 'Rectificativa')
+        .filter((d: any) => d.type === 'invoice' && d.status === 'Emitida')
         .reduce((acc: number, d: any) => acc + (d.total || 0), 0);
       setPendingCollection(pending);
       setRecentDocs(docs.slice(0, 6));
