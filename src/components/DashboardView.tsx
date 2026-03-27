@@ -14,6 +14,7 @@ import {
   FileText,
   Activity,
   BarChart3,
+  Radio,
 } from 'lucide-react';
 import Card from './common/Card';
 
@@ -289,6 +290,30 @@ export default function DashboardView() {
                 ? `Reserva ${formatEuro(dr.ivaToPay)} para la próxima liquidación de IVA.`
                 : 'Registra gastos deducibles para reducir tu carga fiscal trimestral.'}
             </p>
+          </Card>
+
+          {/* VeriFactu Roadmap */}
+          <Card className="p-4 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-emerald-500/20" accent="none">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center">
+                <Radio size={11} className="text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest leading-none">Próximamente</p>
+              </div>
+            </div>
+            <h4 className="text-[11px] font-black text-white mb-1">Conexión VeriFactu</h4>
+            <p className="text-[9px] text-slate-500 font-bold leading-relaxed">
+              Trazabilidad fiscal automática conforme al{' '}
+              <span className="text-slate-400">Real Decreto 1007/2023</span>.
+              Faktio enviará cada factura firmada digitalmente a la AEAT en tiempo real.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <div className="h-1 flex-1 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full w-[35%] bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full" />
+              </div>
+              <span className="text-[8px] font-black text-emerald-400/60 uppercase tracking-widest">35%</span>
+            </div>
           </Card>
         </div>
       </div>

@@ -171,7 +171,7 @@ export default function AuthView({ onLogin }: Props) {
 
   const stepSubtitle: Record<string, string> = {
     auth: 'Deep Space Auth Node',
-    pin: 'Verificación de Identidad',
+    pin: 'Introduce tu PIN de 4 dígitos',
     seed: 'Seguridad de Cuenta',
     verify_seed: 'Confirma tu Frase',
     create_pin: 'Crea tu PIN de Acceso',
@@ -343,10 +343,7 @@ export default function AuthView({ onLogin }: Props) {
                   initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
                   className="flex flex-col items-center"
                 >
-                  <p className="text-[9px] font-black text-slate-500 mb-5 uppercase tracking-[0.4em] text-center">
-                    Introduce tu PIN de 4 dígitos
-                  </p>
-                  <div className="flex justify-center gap-4 mb-7">
+                  <div className="flex justify-center gap-4 mt-3 mb-5">
                     {[0,1,2,3].map(i => (
                       <div key={i} className={`w-3 h-3 rounded-full border-2 transition-all duration-500 ${
                         loading ? 'bg-purple-500/50 border-purple-500/50' :
@@ -354,27 +351,27 @@ export default function AuthView({ onLogin }: Props) {
                       }`} />
                     ))}
                   </div>
-                  <div className="grid grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-3 gap-2">
                     {[1,2,3,4,5,6,7,8,9].map(n => (
                       <button key={n} onClick={() => handlePinSubmit(n.toString())}
                         disabled={loading || pin.length >= 4}
-                        className="w-[62px] h-[62px] text-xl font-black text-white rounded-2xl hover:bg-white/5 border border-white/5 flex items-center justify-center transition-all active:scale-90 disabled:opacity-40">
+                        className="w-[58px] h-[58px] text-xl font-black text-white rounded-2xl hover:bg-white/5 border border-white/5 flex items-center justify-center transition-all active:scale-90 disabled:opacity-40">
                         {n}
                       </button>
                     ))}
                     <div />
                     <button onClick={() => handlePinSubmit('0')}
                       disabled={loading || pin.length >= 4}
-                      className="w-[62px] h-[62px] text-xl font-black text-white rounded-2xl hover:bg-white/5 border border-white/5 flex items-center justify-center transition-all active:scale-90 disabled:opacity-40">
+                      className="w-[58px] h-[58px] text-xl font-black text-white rounded-2xl hover:bg-white/5 border border-white/5 flex items-center justify-center transition-all active:scale-90 disabled:opacity-40">
                       0
                     </button>
                     <button onClick={() => setPin(pin.slice(0, -1))}
-                      className="w-[62px] h-[62px] rounded-2xl hover:bg-white/5 flex items-center justify-center text-slate-700 hover:text-rose-400 transition-colors">
+                      className="w-[58px] h-[58px] rounded-2xl hover:bg-white/5 flex items-center justify-center text-slate-700 hover:text-rose-400 transition-colors">
                       <Delete size={22} />
                     </button>
                   </div>
                   <button onClick={() => { setRecoveryType('pin'); prepareRecovery(); }}
-                    className="mt-6 text-[9px] font-black text-purple-400/40 uppercase tracking-widest hover:text-purple-400 transition-colors">
+                    className="mt-4 text-[9px] font-black text-purple-400/40 uppercase tracking-widest hover:text-purple-400 transition-colors">
                     ¿Olvidaste tu PIN?
                   </button>
                 </motion.div>

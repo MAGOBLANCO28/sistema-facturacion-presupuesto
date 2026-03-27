@@ -163,9 +163,10 @@ async function inalterabilityMiddleware(req: any, res: any, next: any) {
         [id, req.tenantId]
       );
       const doc = result.rows[0];
-      if (doc && doc.type === 'invoice' && (doc.status === 'sent' || doc.status === 'paid')) {
+      const PROTECTED = ['Emitida', 'Pagada', 'Rectificativa'];
+      if (doc && doc.type === 'invoice' && PROTECTED.includes(doc.status)) {
         return res.status(403).json({
-          error: "Inalterabilidad activa: No se puede modificar/eliminar una factura enviada o pagada. Debe emitir una Factura Rectificativa."
+          error: "Inalterabilidad activa: No se puede modificar/eliminar una factura emitida o pagada. Debe emitir una Factura Rectificativa."
         });
       }
     }

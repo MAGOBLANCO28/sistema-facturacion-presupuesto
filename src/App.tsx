@@ -200,7 +200,11 @@ export default function App() {
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">COMPLIANCE</p>
             </div>
-            <p className="text-[10px] font-bold text-slate-600 leading-tight">Faktio 2026 · Ley de Trazabilidad VeriFactu</p>
+            <p className="text-[10px] font-bold text-slate-600 leading-tight">RGPD · LOPDGDD · Inalterabilidad fiscal</p>
+            <div className="flex items-center gap-1.5 px-2 py-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
+              <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <p className="text-[8px] font-black text-emerald-500/60 uppercase tracking-widest leading-none">VeriFactu RD 1007/2023 · En desarrollo</p>
+            </div>
           </div>
         </div>
       </aside>
