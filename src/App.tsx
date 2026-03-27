@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Receipt,
   FileText,
-  Zap,
   MinusCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -168,8 +167,8 @@ export default function App() {
       >
         <div className="p-8 pb-4">
           <div className="flex items-center gap-4 group cursor-pointer" onClick={() => setView('dashboard')}>
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20 border border-white/10 group-hover:rotate-12 group-hover:scale-110 transition-all duration-500">
-              <Zap className="text-white fill-white" size={24} />
+            <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg shadow-purple-500/20 border border-white/10 group-hover:scale-110 transition-all duration-500 shrink-0">
+              <img src="/logo-512.png" alt="Faktio" className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className="font-black text-xl tracking-tighter text-white leading-none">FAKTIO <span className="text-purple-400">2026</span></h1>

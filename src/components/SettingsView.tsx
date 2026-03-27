@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Building2, 
-  Upload, 
-  Lock, 
+import {
+  Building2,
+  Upload,
+  Lock,
   Key,
   Mail,
   Phone as PhoneIcon,
   MapPin,
   ShieldCheck,
   Globe,
-  CheckCircle2
+  CheckCircle2,
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CompanySettings } from '../types';
@@ -49,6 +51,8 @@ export default function SettingsView({ settings, onUpdate }: Props) {
   
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [pinSuccess, setPinSuccess] = useState(false);
   const [showSeed, setShowSeed] = useState(false);
   const [seed, setSeed] = useState<string | null>(null);
   const [pinForSeed, setPinForSeed] = useState('');
@@ -88,7 +92,8 @@ export default function SettingsView({ settings, onUpdate }: Props) {
 
   const handleUpdatePin = async () => {
     setError('');
-    if (newPin.length !== 4) return setError('El nuevo PIN debe tener 4 dígitos');
+    if (newPin.length !== 4) return setError('El nuevo PIN debe tener exactamente 4 dígitos');
+    if (newPin !== confirmPin) return setError('Los PINs no coinciden. Verifica que has escrito el mismo PIN dos veces');
     try {
       const res = await authFetch('/api/auth/pin', {
         method: 'PATCH',
@@ -98,10 +103,11 @@ export default function SettingsView({ settings, onUpdate }: Props) {
         const data = await res.json();
         return setError(data.error || 'Error al actualizar PIN');
       }
-      setSaved(true);
+      setPinSuccess(true);
       setCurrentPin('');
       setNewPin('');
-      setTimeout(() => setSaved(false), 3000);
+      setConfirmPin('');
+      setTimeout(() => setPinSuccess(false), 4000);
     } catch {
       setError('Error de conexión');
     }
@@ -257,45 +263,98 @@ export default function SettingsView({ settings, onUpdate }: Props) {
         ) : (
           <div key="security" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <Card className="p-4 space-y-4" accent="blue">
-                  <div className="flex items-center gap-3 mb-2">
-                     <div className="w-8 h-8 bg-blue-500/10 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/20 shadow-lg"><Lock size={14} /></div>
-                     <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Código PIN</h3>
-                  </div>
-                  <div className="space-y-3">
-                     <PinInput label="PIN Actual" value={currentPin} onChange={setCurrentPin} />
-                     <PinInput label="Nuevo PIN" value={newPin} onChange={setNewPin} />
-                     <button onClick={handleUpdatePin} className="w-full py-2.5 mt-2 bg-white/5 text-white border border-white/10 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white/10 transition-all shadow-xl">
-                        Cambiar PIN
-                     </button>
-                  </div>
-               </Card>
 
-               <Card className="p-4 space-y-4 flex flex-col" accent="purple">
-                  <div className="flex items-center gap-3 mb-2">
-                     <div className="w-8 h-8 bg-purple-500/10 text-purple-400 rounded-xl flex items-center justify-center border border-purple-500/20 shadow-lg"><Key size={14} /></div>
-                     <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Semilla Maestra</h3>
+              {/* ── Código PIN ── */}
+              <Card className="p-4 space-y-3" accent="blue">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-500/10 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/20"><Lock size={14} /></div>
+                  <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Código PIN</h3>
+                </div>
+                <div className="space-y-2.5">
+                  <div>
+                    <PinInput label="PIN Actual" value={currentPin} onChange={setCurrentPin} />
+                    <p className="text-[8px] text-slate-600 font-bold mt-1 pl-1">Deja vacío si aún no tienes PIN configurado</p>
                   </div>
-                  {!showSeed ? (
-                    <div className="flex-1 flex flex-col gap-3">
-                       <PinInput label="Confirma PIN" value={pinForSeed} onChange={setPinForSeed} />
-                       <button onClick={handleRevealSeed} className="w-full py-2.5 bg-purple-500 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-purple-600 transition-all shadow-lg mt-auto shadow-purple-500/20">
-                          Revelar Frase
-                       </button>
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col gap-4">
-                       <div className="flex-1 p-4 bg-purple-500/5 rounded-2xl border border-purple-500/20 text-[10px] font-mono font-bold text-purple-200 break-words leading-relaxed overflow-auto max-h-[120px] shadow-inner custom-scrollbar">
-                          {seed}
-                       </div>
-                       <button onClick={() => setShowSeed(false)} className="w-full py-3 bg-white/5 text-slate-400 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:text-white transition-colors">
-                          Cerrar
-                       </button>
-                    </div>
+                  <PinInput label="Nuevo PIN (4 dígitos)" value={newPin} onChange={setNewPin} />
+                  <PinInput label="Confirmar nuevo PIN" value={confirmPin} onChange={setConfirmPin} />
+                  {pinSuccess && (
+                    <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest text-center animate-pulse">
+                      ✓ PIN guardado correctamente
+                    </p>
                   )}
-               </Card>
+                  <button onClick={handleUpdatePin} className="w-full py-2.5 bg-blue-500/15 text-blue-300 border border-blue-500/20 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-blue-500/25 transition-all">
+                    Guardar PIN
+                  </button>
+                </div>
+              </Card>
+
+              {/* ── Palabras de Recuperación ── */}
+              <Card className="p-4 space-y-3 flex flex-col" accent="purple">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-purple-500/10 text-purple-400 rounded-xl flex items-center justify-center border border-purple-500/20"><Key size={14} /></div>
+                  <div>
+                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Palabras de Recuperación</h3>
+                    <p className="text-[8px] text-slate-600 font-bold mt-0.5">12 palabras · protegidas por PIN</p>
+                  </div>
+                </div>
+                {!showSeed ? (
+                  <div className="flex-1 flex flex-col gap-3">
+                    <PinInput label="Introduce tu PIN para revelar" value={pinForSeed} onChange={setPinForSeed} />
+                    <button onClick={handleRevealSeed} className="w-full py-2.5 bg-purple-500/15 text-purple-300 border border-purple-500/20 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-purple-500/25 transition-all mt-auto">
+                      Revelar palabras
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col gap-3">
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {(seed || '').split(' ').map((word, i) => (
+                        <div key={i} className="py-1.5 px-2 bg-purple-500/5 border border-purple-500/15 rounded-xl flex items-center gap-1 overflow-hidden">
+                          <span className="text-[7px] text-purple-400/50 shrink-0">{i + 1}.</span>
+                          <span className="text-[9px] font-mono font-bold text-purple-200 truncate">{word}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[8px] text-slate-600 font-bold text-center">Guárdalas en papel · no compartas estas palabras</p>
+                    <button onClick={() => { setShowSeed(false); setPinForSeed(''); }} className="w-full py-2.5 bg-white/5 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:text-white transition-colors">
+                      Ocultar
+                    </button>
+                  </div>
+                )}
+              </Card>
+
             </div>
-            {error && <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 font-black text-[10px] text-center uppercase tracking-widest">{error}</div>}
+              {/* ── Legal y Privacidad ── */}
+              <Card className="p-4 space-y-3" accent="slate">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-slate-500/10 text-slate-400 rounded-xl flex items-center justify-center border border-slate-500/20"><FileText size={14} /></div>
+                  <div>
+                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Legal y Privacidad</h3>
+                    <p className="text-[8px] text-slate-600 font-bold mt-0.5">RGPD · LOPDGDD · Ley de Trazabilidad</p>
+                  </div>
+                </div>
+                <a
+                  href="/politicas.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 hover:border-white/10 transition-all group"
+                >
+                  <span className="text-[10px] font-black text-slate-400 group-hover:text-white uppercase tracking-widest transition-colors">Política de Privacidad</span>
+                  <ExternalLink size={12} className="text-slate-600 group-hover:text-purple-400 transition-colors" />
+                </a>
+                <div className="p-3 bg-white/3 border border-white/5 rounded-xl space-y-1">
+                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Ejercer derechos ARCO</p>
+                  <p className="text-[9px] text-slate-600 leading-relaxed">
+                    Acceso, rectificación, cancelación u oposición · Escribe a{' '}
+                    <span className="text-purple-400 font-bold">privacidad@faktio.app</span>
+                  </p>
+                </div>
+              </Card>
+
+            {error && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 font-black text-[10px] text-center uppercase tracking-widest">
+                {error}
+              </div>
+            )}
           </div>
         )}
       </AnimatePresence>

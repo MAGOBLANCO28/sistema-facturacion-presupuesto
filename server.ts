@@ -187,15 +187,32 @@ async function startServer() {
   });
 
   // ── SEGURIDAD AVANZADA (Fase 2.2) ─────────────────
-  
+
+  // 0. Verificar PIN (login con PIN)
+  app.post("/api/auth/verify-pin", authMiddleware, async (req: any, res) => {
+    const { pin } = req.body;
+    try {
+      const { rows } = await pool.query("SELECT security_pin FROM tenants WHERE id = $1", [req.tenantId]);
+      if (!rows[0] || rows[0].security_pin !== pin) {
+        return res.status(401).json({ error: "PIN incorrecto" });
+      }
+      res.json({ valid: true });
+    } catch (err) {
+      res.status(500).json({ error: "Error al verificar PIN" });
+    }
+  });
+
   // 1. Cambiar PIN
   app.patch("/api/auth/pin", authMiddleware, async (req: any, res) => {
     const { currentPin, newPin } = req.body;
     try {
       const { rows } = await pool.query("SELECT security_pin FROM tenants WHERE id = $1", [req.tenantId]);
-      if (rows[0].security_pin !== currentPin) return res.status(400).json({ error: "PIN actual incorrecto" });
+      // Si ya tiene PIN, validar el actual; si no tiene PIN aún, permitir establecerlo sin validación
+      if (rows[0].security_pin && rows[0].security_pin !== currentPin) {
+        return res.status(400).json({ error: "PIN actual incorrecto" });
+      }
       
-      await pool.query("UPDATE tenants SET security_pin = $1 WHERE id = $1", [newPin, req.tenantId]);
+      await pool.query("UPDATE tenants SET security_pin = $1 WHERE id = $2", [newPin, req.tenantId]);
       res.json({ message: "PIN actualizado con éxito" });
     } catch (err) {
       res.status(500).json({ error: "Error al actualizar PIN" });
@@ -203,12 +220,26 @@ async function startServer() {
   });
 
   // 2. Obtener Semilla (Protegida por PIN)
+  // Guardar semilla tras el registro (solo si aún no tiene una)
+  app.post("/api/auth/seed/save", authMiddleware, async (req: any, res) => {
+    const { seed } = req.body;
+    if (!seed || typeof seed !== 'string') return res.status(400).json({ error: "Semilla inválida" });
+    try {
+      const { rows } = await pool.query("SELECT recovery_seed FROM tenants WHERE id = $1", [req.tenantId]);
+      if (rows[0]?.recovery_seed) return res.json({ ok: true }); // ya tiene semilla, no sobreescribir
+      await pool.query("UPDATE tenants SET recovery_seed = $1 WHERE id = $2", [seed, req.tenantId]);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: "Error al guardar semilla" });
+    }
+  });
+
+  // Revelar semilla (protegida por PIN)
   app.post("/api/auth/seed", authMiddleware, async (req: any, res) => {
     const { pin } = req.body;
     try {
       const { rows } = await pool.query("SELECT security_pin, recovery_seed FROM tenants WHERE id = $1", [req.tenantId]);
       if (rows[0].security_pin !== pin) return res.status(400).json({ error: "PIN incorrecto" });
-      
       res.json({ seed: rows[0].recovery_seed });
     } catch (err) {
       res.status(500).json({ error: "Error al recuperar semilla" });
