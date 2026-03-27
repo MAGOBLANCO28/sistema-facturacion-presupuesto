@@ -81,7 +81,7 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS documents (
       id SERIAL PRIMARY KEY,
       tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
-      type TEXT CHECK(type IN ('invoice', 'quote')),
+      type TEXT,
       number TEXT,
       date TEXT,
       client_name TEXT,
@@ -123,6 +123,18 @@ async function initDB() {
     ALTER TABLE documents ADD COLUMN IF NOT EXISTS is_rectificative BOOLEAN DEFAULT FALSE;
     ALTER TABLE documents ADD COLUMN IF NOT EXISTS original_invoice_id INTEGER REFERENCES documents(id);
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo_url TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS zip TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS account_type TEXT DEFAULT 'autonomo';
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS irpf_rate INTEGER DEFAULT 15;
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS client_zip TEXT;
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS client_province TEXT;
+    ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_status_check;
+    ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_type_check;
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS irpf_rate REAL DEFAULT 0;
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS irpf_amount REAL DEFAULT 0;
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS provider TEXT;
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS nif TEXT;
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS base_amount REAL;
   `);
 
   console.log("✅ Base de datos lista");
@@ -274,13 +286,14 @@ async function startServer() {
   });
 
   app.post("/api/settings", authMiddleware, async (req: any, res) => {
-    const { company_name, owner_name, cif, phone, email, address, city, province } = req.body;
+    const { company_name, owner_name, cif, phone, email, address, city, province, zip, account_type, irpf_rate } = req.body;
     await pool.query(`
       UPDATE settings SET
         company_name=$1, owner_name=$2, cif=$3, phone=$4,
-        email=$5, address=$6, city=$7, province=$8
-      WHERE tenant_id=$9
-    `, [company_name, owner_name, cif, phone, email, address, city, province, req.tenantId]);
+        email=$5, address=$6, city=$7, province=$8,
+        zip=$9, account_type=$10, irpf_rate=$11
+      WHERE tenant_id=$12
+    `, [company_name, owner_name, cif, phone, email, address, city, province, zip, account_type || 'autonomo', irpf_rate || 15, req.tenantId]);
     res.json({ success: true });
   });
 
@@ -307,10 +320,13 @@ async function startServer() {
   app.get("/api/next-number/:type", authMiddleware, async (req: any, res) => {
     const { type } = req.params;
     const year = new Date().getFullYear();
-    const prefix = type === 'invoice' ? 'FAC' : 'PRE';
-    
+    let prefix: string;
+    if (type === 'invoice') prefix = 'FAC';
+    else if (type === 'abono') prefix = 'ABO';
+    else prefix = 'PRE';
+
     const result = await pool.query(`
-      SELECT number FROM documents 
+      SELECT number FROM documents
       WHERE tenant_id = $1 AND type = $2 AND number LIKE $3
       ORDER BY number DESC LIMIT 1
     `, [req.tenantId, type, `${prefix}-${year}-%`]);
@@ -337,12 +353,12 @@ async function startServer() {
   });
 
   app.post("/api/documents", authMiddleware, async (req: any, res) => {
-    const { type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, status, is_rectificative, original_invoice_id } = req.body;
-    
+    const { type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id } = req.body;
+
     const result = await pool.query(`
-      INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, status, is_rectificative, original_invoice_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id
-    `, [req.tenantId, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, JSON.stringify(items), subtotal, iva_rate, iva_amount, total, status || (type === 'invoice' ? 'Borrador' : 'Pendiente'), is_rectificative || false, original_invoice_id || null]);
+      INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING id
+    `, [req.tenantId, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, JSON.stringify(items), subtotal, iva_rate, iva_amount, total, irpf_rate || 0, irpf_amount || 0, status || (type === 'invoice' ? 'Borrador' : 'Pendiente'), is_rectificative || false, original_invoice_id || null]);
     res.json({ id: result.rows[0].id });
   });
 
@@ -367,11 +383,12 @@ async function startServer() {
   });
 
   app.post("/api/expenses", authMiddleware, async (req: any, res) => {
-    const { description, amount, iva_amount, iva_rate, category, date, ticket_image_url } = req.body;
+    const { description, provider, nif, amount, base_amount, iva_amount, iva_rate, category, date, ticket_image_url } = req.body;
+    const base = base_amount || parseFloat(((amount || 0) / (1 + (iva_rate || 21) / 100)).toFixed(2));
     const result = await pool.query(`
-      INSERT INTO expenses (tenant_id, description, amount, iva_amount, iva_rate, category, date, ticket_image_url)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id
-    `, [req.tenantId, description, amount, iva_amount, iva_rate, category, date, ticket_image_url]);
+      INSERT INTO expenses (tenant_id, description, provider, nif, amount, base_amount, iva_amount, iva_rate, category, date, ticket_image_url)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id
+    `, [req.tenantId, description, provider || '', nif || '', amount, base, iva_amount, iva_rate, category, date, ticket_image_url]);
     res.json({ id: result.rows[0].id });
   });
 
@@ -382,49 +399,143 @@ async function startServer() {
 
   // ── INTELIGENCIA FISCAL REPORTE ────────────────────
   app.get("/api/reports/real-income", authMiddleware, async (req: any, res) => {
-    // 1. Facturas Cobradas (PAGADAS)
+    // Configuración del tenant
+    const settingsRes = await pool.query("SELECT account_type, irpf_rate FROM settings WHERE tenant_id = $1", [req.tenantId]);
+    const tenantSettings = settingsRes.rows[0] || { account_type: 'autonomo', irpf_rate: 15 };
+    const isAutonomo = tenantSettings.account_type !== 'sl';
+
+    // Facturas emitidas (Emitida o Pagada) — para calcular IVA repercutido e IRPF retenido
     const invoicesRes = await pool.query(
-      "SELECT SUM(total) as total, SUM(iva_amount) as iva, SUM(subtotal) as subtotal FROM documents WHERE tenant_id = $1 AND type = 'invoice' AND status = 'paid'",
+      `SELECT
+        SUM(total) as total_bruto,
+        SUM(subtotal) as subtotal,
+        SUM(iva_amount) as iva_repercutido,
+        SUM(irpf_amount) as irpf_retenido,
+        SUM(total - COALESCE(irpf_amount,0)) as total_neto_cobrado
+       FROM documents
+       WHERE tenant_id = $1 AND type = 'invoice' AND status IN ('Pagada','Emitida')`,
       [req.tenantId]
     );
-    
-    // 2. Gastos Totales
+
+    // Solo facturas PAGADAS para liquidez real
+    const paidRes = await pool.query(
+      `SELECT
+        SUM(total) as total_bruto,
+        SUM(subtotal) as subtotal,
+        SUM(iva_amount) as iva_repercutido,
+        SUM(irpf_amount) as irpf_retenido,
+        SUM(total - COALESCE(irpf_amount,0)) as total_neto_cobrado
+       FROM documents
+       WHERE tenant_id = $1 AND type = 'invoice' AND status = 'Pagada'`,
+      [req.tenantId]
+    );
+
+    // Gastos totales
     const expensesRes = await pool.query(
-      "SELECT SUM(amount) as total, SUM(iva_amount) as iva FROM expenses WHERE tenant_id = $1",
+      `SELECT
+        SUM(amount) as total,
+        SUM(COALESCE(base_amount, amount / (1 + COALESCE(iva_rate,21)/100))) as base_total,
+        SUM(COALESCE(iva_amount,0)) as iva_soportado
+       FROM expenses WHERE tenant_id = $1`,
       [req.tenantId]
     );
 
-    const income = invoicesRes.rows[0];
-    const expense = expensesRes.rows[0];
+    const paid = paidRes.rows[0];
+    const all = invoicesRes.rows[0];
+    const exp = expensesRes.rows[0];
 
-    const totalIncome = parseFloat(income.total || 0);
-    const totalIVACollected = parseFloat(income.iva || 0);
-    const totalSubtotalIncome = parseFloat(income.subtotal || 0);
+    const totalIncomeBruto = parseFloat(paid.total_bruto || 0);
+    const totalIncomeBase = parseFloat(paid.subtotal || 0);
+    const ivaRepercutido = parseFloat(all.iva_repercutido || 0);  // de todas las emitidas/pagadas
+    const irpfRetenido = parseFloat(all.irpf_retenido || 0);      // IRPF ya retenido por clientes
+    const totalNetoRecibido = parseFloat(paid.total_neto_cobrado || 0); // lo que realmente entró en cuenta
 
-    const totalExpense = parseFloat(expense.total || 0);
-    const totalIVAPaid = parseFloat(expense.iva || 0);
+    const totalExpense = parseFloat(exp.total || 0);
+    const expenseBase = parseFloat(exp.base_total || 0);
+    const ivaSoportado = parseFloat(exp.iva_soportado || 0);
 
-    // Lógica Fiscal España 2026:
-    // IVA a liquidar = IVA Cobrado - IVA Pagado
-    const ivaToPay = Math.max(0, totalIVACollected - totalIVAPaid);
-    
-    // IRPF (Modelo 130 - 20% del beneficio neto)
-    // Beneficio Neto = Subtotal Ingresos - Subtotal Gastos (amount en gastos es total, restamos su iva)
-    const netProfit = totalSubtotalIncome - (totalExpense - totalIVAPaid);
-    const irpfProvision = Math.max(0, netProfit * 0.20);
+    // IVA neto (Modelo 303): positivo = debemos a Hacienda, negativo = Hacienda nos debe
+    const ivaNeto = ivaRepercutido - ivaSoportado;
 
-    // Sueldo Real = Dinero en cuenta (Total Ingresos) - IVA a pagar - Provisión IRPF - Gastos ya pagados
-    // Nota: El dinero disponible realmente es (Total Ingresos - Gastos Pagados) - Impuestos pendientes
-    const realSalary = totalIncome - totalExpense - ivaToPay - irpfProvision;
+    // Beneficio bruto (base ingresos - base gastos)
+    const beneficioBruto = totalIncomeBase - expenseBase;
+
+    // Liquidez real:
+    // Para autónomo: lo cobrado neto (sin IRPF) - gastos pagados - IVA neto pendiente
+    // Para SL: lo cobrado bruto - gastos pagados - IVA neto pendiente
+    const ivaAPagar = Math.max(0, ivaNeto);
+    const realSalary = totalNetoRecibido - totalExpense - ivaAPagar;
 
     res.json({
-      totalIncome,
+      totalIncome: totalIncomeBruto,
+      totalIncomeBase,
       totalExpense,
-      ivaToPay,
-      irpfProvision,
+      expenseBase,
+      ivaRepercutido,
+      ivaSoportado,
+      ivaNeto,
+      ivaToPay: ivaAPagar,
+      irpfRetenido: isAutonomo ? irpfRetenido : 0,
       realSalary,
-      netProfit
+      netProfit: beneficioBruto,
+      isAutonomo,
     });
+  });
+
+  // ── EXPORTACIÓN CSV ───────────────────────────────
+  app.get("/api/export/incomes", authMiddleware, async (req: any, res) => {
+    const result = await pool.query(
+      `SELECT number, date, client_name, client_dni, subtotal, iva_rate, iva_amount, irpf_rate, irpf_amount, total, status
+       FROM documents WHERE tenant_id = $1 AND type = 'invoice' ORDER BY date ASC`,
+      [req.tenantId]
+    );
+    const rows = result.rows;
+    const headers = ['Número','Fecha','Cliente','NIF/CIF Cliente','Base (€)','IVA %','IVA (€)','IRPF %','IRPF (€)','Total (€)','Cobrado Neto (€)','Estado'];
+    const lines = rows.map(r => [
+      r.number,
+      r.date,
+      r.client_name,
+      r.client_dni || '',
+      (r.subtotal || 0).toFixed(2),
+      (r.iva_rate || 0).toString(),
+      (r.iva_amount || 0).toFixed(2),
+      (r.irpf_rate || 0).toString(),
+      (r.irpf_amount || 0).toFixed(2),
+      (r.total || 0).toFixed(2),
+      ((r.total || 0) - (r.irpf_amount || 0)).toFixed(2),
+      r.status,
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'));
+
+    const csv = [headers.join(';'), ...lines].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="libro_ingresos.csv"');
+    res.send('\uFEFF' + csv); // BOM para Excel español
+  });
+
+  app.get("/api/export/expenses", authMiddleware, async (req: any, res) => {
+    const result = await pool.query(
+      `SELECT date, description, provider, nif, category, base_amount, iva_rate, iva_amount, amount
+       FROM expenses WHERE tenant_id = $1 ORDER BY date ASC`,
+      [req.tenantId]
+    );
+    const rows = result.rows;
+    const headers = ['Fecha','Concepto','Proveedor','NIF/CIF','Categoría','Base (€)','IVA %','IVA (€)','Total (€)'];
+    const lines = rows.map(r => [
+      r.date,
+      r.description,
+      r.provider || '',
+      r.nif || '',
+      r.category,
+      (r.base_amount || 0).toFixed(2),
+      (r.iva_rate || 0).toString(),
+      (r.iva_amount || 0).toFixed(2),
+      (r.amount || 0).toFixed(2),
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'));
+
+    const csv = [headers.join(';'), ...lines].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="libro_gastos.csv"');
+    res.send('\uFEFF' + csv);
   });
 
   // ── OCR INTELIGENTE (Gemini Vision) ────────────────
@@ -443,27 +554,34 @@ async function startServer() {
     try {
       const fileBuffer = fs.readFileSync(req.file.path);
       const imageData = fileBuffer.toString("base64");
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-      const prompt = `Eres un asistente contable español experto. Analiza este documento (puede ser un ticket de compra, factura o albarán) y extrae los datos fiscales.
+      const prompt = `Eres un experto contable español. Analiza MINUCIOSAMENTE este documento fiscal español (ticket, factura, albarán, recibo o cualquier documento con importes) y extrae TODOS los datos que puedas encontrar.
 
-Devuelve ÚNICAMENTE un objeto JSON válido con estos campos exactos (sin texto adicional, sin markdown):
+BUSCA ACTIVAMENTE en TODO el documento:
+- NIF/CIF: cualquier código fiscal (formato: letra+8dígitos como B12345678, o 8dígitos+letra como 12345678A, o X1234567A para extranjeros). Aparece a menudo como "NIF:", "CIF:", "C.I.F:", "N.I.F:", o simplemente junto al nombre de empresa/proveedor.
+- Importes: busca "Total", "TOTAL", "Importe", "Base imponible", "IVA", "Cuota", símbolo €, cualquier número con decimales que parezca un precio.
+- Fecha: en cualquier formato (DD/MM/YYYY, YYYY-MM-DD, DD-MM-YY, texto como "26 de marzo de 2026", etc.)
+
+Devuelve ÚNICAMENTE este JSON (sin markdown, sin texto extra):
 {
-  "description": "concepto del gasto o nombre del establecimiento (máx 60 chars)",
-  "provider": "razón social del proveedor si aparece, si no usa description",
-  "nif": "NIF o CIF del proveedor si aparece, si no pon null",
-  "amount": importe total con IVA como número decimal (ej: 45.50),
-  "base_amount": base imponible sin IVA como número decimal,
-  "iva_rate": tipo de IVA como entero (21, 10, 4 o 0),
-  "iva_amount": cuota de IVA como número decimal,
+  "description": "concepto principal del gasto, máximo 60 caracteres",
+  "provider": "nombre completo de la empresa o autónomo emisor",
+  "nif": "NIF o CIF del emisor como string, o null si no aparece en ningún lugar del documento",
+  "amount": número decimal del importe TOTAL con IVA incluido (ej: 45.50),
+  "base_amount": número decimal de la base imponible sin IVA,
+  "iva_rate": número entero del porcentaje de IVA (21, 10, 4 o 0),
+  "iva_amount": número decimal del importe de IVA,
   "date": "fecha en formato YYYY-MM-DD",
-  "category": "una de: Tecnología, Suministros, Transporte, Formación, Comidas, Varios"
+  "category": "una de estas exactamente: Tecnología, Suministros, Transporte, Formación, Comidas, Varios"
 }
 
-Reglas:
-- Si no hay desglose de IVA visible, calcula asumiendo 21% sobre el total
-- Si la fecha no aparece, usa la fecha de hoy: ${new Date().toISOString().split('T')[0]}
-- SOLO devuelve el JSON, sin explicaciones ni texto antes o después`;
+Reglas de cálculo:
+- Si ves el total pero no el desglose: base = total / 1.21, iva_amount = total - base, iva_rate = 21
+- Si ves base e IVA pero no el total: amount = base + iva_amount
+- Si la fecha no aparece usa: ${new Date().toISOString().split('T')[0]}
+- Los importes siempre como números (no strings), con punto decimal (no coma)
+- IMPORTANTE: aunque el documento no parezca una factura estándar, extrae cualquier importe monetario visible`;
 
       const result = await model.generateContent([
         prompt,
@@ -491,6 +609,8 @@ Reglas:
       const iva_rate = parseInt(extracted.iva_rate) || 21;
       const base = parseFloat(extracted.base_amount) || parseFloat((total / (1 + iva_rate / 100)).toFixed(2));
       const iva_amount = parseFloat(extracted.iva_amount) || parseFloat((total - base).toFixed(2));
+
+      console.log("OCR extraído:", JSON.stringify({ nif: extracted.nif, amount: extracted.amount, base: extracted.base_amount, iva: extracted.iva_amount, date: extracted.date }));
 
       const response = {
         description: extracted.description || extracted.provider || "Gasto",
@@ -544,12 +664,12 @@ Reglas:
       }
       const invoiceNumber = `FAC-${year}-${String(nextNum).padStart(3, '0')}`;
 
-      // 2. Crear factura como 'Borrador'
+      // 2. Crear factura como 'Emitida'
       const newInvoice = await pool.query(`
-        INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, status, original_invoice_id)
-        VALUES ($1, 'invoice', $2, CURRENT_DATE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Borrador', $14)
+        INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, original_invoice_id)
+        VALUES ($1, 'invoice', $2, CURRENT_DATE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'Emitida', $16)
         RETURNING *`,
-        [req.tenantId, invoiceNumber, quote.client_name, quote.client_dni, quote.client_address, quote.client_city, quote.client_zip, quote.client_province, JSON.stringify(quote.items), quote.subtotal, quote.iva_rate, quote.iva_amount, quote.total, quote.id]
+        [req.tenantId, invoiceNumber, quote.client_name, quote.client_dni, quote.client_address, quote.client_city, quote.client_zip, quote.client_province, JSON.stringify(quote.items), quote.subtotal, quote.iva_rate, quote.iva_amount, quote.total, quote.irpf_rate || 0, quote.irpf_amount || 0, quote.id]
       );
 
       // 3. Marcar presupuesto como 'Convertido'
@@ -559,6 +679,49 @@ Reglas:
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Error al convertir" });
+    }
+  });
+
+  // ── CANCELAR FACTURA (crea abono automático) ───────
+  app.post("/api/documents/cancel/:id", authMiddleware, async (req: any, res) => {
+    try {
+      const { rows } = await pool.query(
+        "SELECT * FROM documents WHERE id = $1 AND tenant_id = $2 AND type = 'invoice'",
+        [req.params.id, req.tenantId]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: "Factura no encontrada" });
+      const doc = rows[0];
+
+      // Marcar factura original como Cancelada
+      await pool.query("UPDATE documents SET status = 'Cancelada' WHERE id = $1 AND tenant_id = $2", [doc.id, req.tenantId]);
+
+      // Calcular siguiente número de abono
+      const year = new Date().getFullYear();
+      const lastABO = await pool.query(
+        "SELECT number FROM documents WHERE tenant_id = $1 AND type = 'abono' AND number LIKE $2 ORDER BY number DESC LIMIT 1",
+        [req.tenantId, `ABO-${year}-%`]
+      );
+      let nextNum = 1;
+      if (lastABO.rows.length > 0) {
+        const parts = lastABO.rows[0].number.split('-');
+        const n = parseInt(parts[parts.length - 1]);
+        if (!isNaN(n)) nextNum = n + 1;
+      }
+      const aboNumber = `ABO-${year}-${String(nextNum).padStart(3, '0')}`;
+
+      // Crear abono (importes negativos)
+      const aboResult = await pool.query(`
+        INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id)
+        VALUES ($1,'abono',$2,CURRENT_DATE,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'Emitida',true,$16) RETURNING id`,
+        [req.tenantId, aboNumber, doc.client_name, doc.client_dni, doc.client_address, doc.client_city, doc.client_zip, doc.client_province,
+         JSON.stringify(doc.items), -(doc.subtotal || 0), doc.iva_rate, -(doc.iva_amount || 0), -(doc.total || 0),
+         doc.irpf_rate || 0, -(doc.irpf_amount || 0), doc.id]
+      );
+
+      res.json({ success: true, aboNumber, aboId: aboResult.rows[0].id });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Error al cancelar la factura" });
     }
   });
 

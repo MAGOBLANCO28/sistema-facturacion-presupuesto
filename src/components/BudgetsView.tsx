@@ -19,9 +19,10 @@ const AMBER = '#F59E0B';
 interface Props {
   onEdit: (doc: DocumentData) => void;
   onPreview: (doc: DocumentData) => void;
+  onCreateNew?: () => void;
 }
 
-export default function BudgetsView({ onEdit, onPreview }: Props) {
+export default function BudgetsView({ onEdit, onPreview, onCreateNew }: Props) {
   const [budgets, setBudgets] = useState<DocumentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -83,8 +84,8 @@ export default function BudgetsView({ onEdit, onPreview }: Props) {
             className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/5 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500/20 transition-all font-bold text-sm text-white placeholder:text-slate-700 shadow-inner"
           />
         </div>
-        <button 
-          onClick={() => onEdit({ type: 'quote', number: '', date: new Date().toISOString().split('T')[0], client_name: '', client_dni: '', client_address: '', client_city: '', client_zip: '', client_province: '', items: [{ id: Math.random().toString(), concept: '', quantity: 1, total: 0 }], subtotal: 0, iva_rate: 21, iva_amount: 0, total: 0, status: 'Pendiente' })}
+        <button
+          onClick={() => onCreateNew?.()}
           className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:scale-105 active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest shrink-0"
         >
           <Plus size={14} strokeWidth={3} /> Crear Presupuesto

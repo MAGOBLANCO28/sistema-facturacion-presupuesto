@@ -19,11 +19,17 @@ import Card from './common/Card';
 
 interface ReportData {
   totalIncome: number;
+  totalIncomeBase: number;
   totalExpense: number;
+  expenseBase: number;
+  ivaRepercutido: number;
+  ivaSoportado: number;
+  ivaNeto: number;
   ivaToPay: number;
-  irpfProvision: number;
+  irpfRetenido: number;
   realSalary: number;
   netProfit: number;
+  isAutonomo: boolean;
 }
 
 const formatEuro = (amount: number | undefined) => {
@@ -96,7 +102,7 @@ export default function DashboardView() {
     </div>
   );
 
-  const dr = report || { totalIncome: 0, totalExpense: 0, ivaToPay: 0, irpfProvision: 0, realSalary: 0, netProfit: 0 };
+  const dr = report || { totalIncome: 0, totalIncomeBase: 0, totalExpense: 0, expenseBase: 0, ivaRepercutido: 0, ivaSoportado: 0, ivaNeto: 0, ivaToPay: 0, irpfRetenido: 0, realSalary: 0, netProfit: 0, isAutonomo: true };
   const marginPct = dr.totalIncome > 0 ? Math.round((dr.netProfit / dr.totalIncome) * 100) : 0;
   const alerts: string[] = [];
   if (dr.ivaToPay > 3000) alerts.push('Alerta Fiscal: Reserva de IVA elevada (>3.000€).');
@@ -172,24 +178,61 @@ export default function DashboardView() {
         </Card>
       </div>
 
-      {/* Provisiones + Compliance */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <ProvisionCard icon={<Receipt size={14} />} label="Reserva IVA" amount={dr.ivaToPay} color="purple" hidden={hideAmounts} />
-        <ProvisionCard icon={<Scale size={14} />} label="Provisión IRPF" amount={dr.irpfProvision} color="amber" hidden={hideAmounts} />
-        <Card className="p-4 flex flex-col justify-between" accent="none">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/15">
-              <ShieldCheck size={14} className="text-emerald-400" />
+      {/* Provisiones Fiscales */}
+      <div className={`grid grid-cols-1 gap-4 ${dr.isAutonomo ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+        {/* IVA Neto */}
+        <Card className="p-4 flex flex-col gap-2" accent="purple">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center border text-purple-400 bg-purple-500/10 border-purple-500/15">
+              <Receipt size={14} />
             </div>
             <div>
-              <p className="text-[10px] font-black text-white uppercase tracking-tight">VeriFactu</p>
-              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Activo 2026</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">IVA Neto (Mod.303)</p>
+              <p className="text-[8px] text-slate-600 font-bold">{hideAmounts ? '' : `Rep. ${formatEuro(dr.ivaRepercutido)} · Sop. ${formatEuro(dr.ivaSoportado)}`}</p>
             </div>
           </div>
+          <p className={`text-2xl font-black tabular-nums tracking-tighter ${dr.ivaNeto > 0 ? 'text-rose-400' : dr.ivaNeto < 0 ? 'text-emerald-400' : 'text-white'}`}>
+            {hideAmounts ? '••••' : formatEuro(dr.ivaNeto)}
+          </p>
+          <p className="text-[8px] font-black uppercase tracking-widest text-slate-600">
+            {dr.ivaNeto > 0 ? '▲ A pagar a Hacienda' : dr.ivaNeto < 0 ? '▼ Hacienda te debe' : 'Equilibrado'}
+          </p>
+        </Card>
+
+        {/* IRPF Retenido — solo autónomos */}
+        {dr.isAutonomo && (
+          <Card className="p-4 flex flex-col gap-2" accent="amber">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center border text-amber-400 bg-amber-500/10 border-amber-500/15">
+                <Scale size={14} />
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">IRPF Retenido</p>
+                <p className="text-[8px] text-slate-600 font-bold">Ya pagado por tus clientes</p>
+              </div>
+            </div>
+            <p className="text-2xl font-black text-amber-400 tabular-nums tracking-tighter">
+              {hideAmounts ? '••••' : formatEuro(dr.irpfRetenido)}
+            </p>
+            <p className="text-[8px] font-black uppercase tracking-widest text-slate-600">Ingresado en Hacienda</p>
+          </Card>
+        )}
+
+        {/* Beneficio */}
+        <Card className="p-4 flex flex-col gap-2" accent="none">
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
-            <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Integridad 100%</span>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center border text-blue-400 bg-blue-500/10 border-blue-500/15">
+              <BarChart3 size={14} />
+            </div>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Beneficio Bruto</p>
+              <p className="text-[8px] text-slate-600 font-bold">Base ingresos − Base gastos</p>
+            </div>
           </div>
+          <p className={`text-2xl font-black tabular-nums tracking-tighter ${dr.netProfit >= 0 ? 'text-white' : 'text-rose-400'}`}>
+            {hideAmounts ? '••••' : formatEuro(dr.netProfit)}
+          </p>
+          <p className="text-[8px] font-black uppercase tracking-widest text-slate-600">Sin impuestos</p>
         </Card>
       </div>
 
@@ -236,24 +279,6 @@ export default function DashboardView() {
         </Card>
 
         <div className="space-y-4">
-          <Card className="p-5" accent="purple">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-              <BarChart3 size={10} className="text-purple-400" /> Beneficio Neto
-            </p>
-            <p className="text-2xl font-black text-white tabular-nums tracking-tighter">
-              {hideAmounts ? '••••' : formatEuro(dr.netProfit)}
-            </p>
-            <div className="mt-3">
-              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-1000"
-                  style={{ width: `${Math.min(Math.max(marginPct, 0), 100)}%` }}
-                />
-              </div>
-              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1.5">Margen {marginPct}%</p>
-            </div>
-          </Card>
-
           <Card className="p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/5 border-indigo-500/20" accent="none">
             <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2 flex items-center gap-2">
               <Zap size={10} /> Consejo Fiscal

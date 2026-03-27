@@ -95,7 +95,10 @@ export default function App() {
     }
   };
 
-  const handleLogin = (newToken: string) => setToken(newToken);
+  const handleLogin = (newToken: string, isNew?: boolean) => {
+    setToken(newToken);
+    if (isNew) setView('settings');
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -115,10 +118,16 @@ export default function App() {
   };
 
   const handleConvertToInvoice = async (id: number) => {
-    if (!confirm('¿Deseas convertir este presupuesto en una factura legal?')) return;
+    if (!confirm('¿Deseas convertir este presupuesto en una factura legal emitida?')) return;
     try {
       const res = await API(`/api/documents/convert/${id}`, { method: 'POST' });
-      if (res.ok) setView('history');
+      if (res.ok) {
+        const data = await res.json();
+        // Abrir el editor con la nueva factura para revisar antes de confirmar
+        setSelectedDoc(data);
+        setDocType('invoice');
+        setView('editor');
+      }
     } catch (err) {
       console.error('Error converting:', err);
     }
@@ -200,9 +209,10 @@ export default function App() {
             )}
             {view === 'budgets' && (
               <motion.div key="budgets" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-                <BudgetsView 
+                <BudgetsView
                    onEdit={(doc) => { setSelectedDoc(doc); setDocType(doc.type); setView('editor'); }}
                    onPreview={(doc) => { setSelectedDoc(doc); setView('preview'); }}
+                   onCreateNew={() => handleCreateNew('quote')}
                 />
               </motion.div>
             )}
@@ -213,7 +223,7 @@ export default function App() {
             )}
             {view === 'editor' && (
               <motion.div key="editor" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}>
-                <DocumentEditor type={docType} initialData={selectedDoc} onSave={() => setView('history')} settings={settings} />
+                <DocumentEditor type={docType} initialData={selectedDoc} onSave={() => setView(docType === 'quote' ? 'budgets' : 'history')} settings={settings} />
               </motion.div>
             )}
             {view === 'history' && (

@@ -1,17 +1,7 @@
 import React from 'react';
 import { DocumentData, CompanySettings } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
-import { 
-  Building2, 
-  User, 
-  Calendar, 
-  ShieldCheck, 
-  Zap, 
-  ArrowRight,
-  Printer,
-  FileDown,
-  ChevronLeft
-} from 'lucide-react';
+import { Zap, Printer, FileDown } from 'lucide-react';
 
 interface Props {
   doc: DocumentData;
@@ -21,210 +11,257 @@ interface Props {
 
 export default function DocumentPreview({ doc, settings, onConvert }: Props) {
   const isBudget = doc.type === 'quote';
-  const themeColor = isBudget ? '#F59E0B' : '#a855f7'; // Purple for Invoices in Deep Space
-  const themeColorLight = isBudget ? '#F59E0B08' : '#a855f705';
+  const isAbono  = doc.type === 'abono';
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
-  };
+  const themeColor  = isBudget ? '#d97706' : isAbono ? '#dc2626' : '#7c3aed';
+  const themeBg     = isBudget ? '#fffbeb' : isAbono ? '#fef2f2' : '#f5f3ff';
+  const themeBorder = isBudget ? '#fde68a' : isAbono ? '#fecaca' : '#ddd6fe';
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+
+  const docTitle   = isBudget ? 'PRESUPUESTO' : isAbono ? 'NOTA DE CRÉDITO' : 'FACTURA';
+  const irpfRate   = doc.irpf_rate || 0;
+  const irpfAmount = Math.abs(doc.irpf_amount || 0);
+  const hasIrpf    = irpfRate > 0 && irpfAmount > 0;
+  const totalBruto = Math.abs(doc.total);
+  const aCobrar    = hasIrpf ? totalBruto - irpfAmount : totalBruto;
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Top Action Bar (Hidden on Print) */}
+      {/* Barra de acciones */}
       <div className="flex items-center justify-between print:hidden">
-        <div className="flex flex-col">
-           <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-1">Previsualización Digital</span>
-           <h3 className="text-xl font-black text-white tracking-tighter">Documento {doc.number}</h3>
+        <div>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] block mb-1">Previsualización</span>
+          <h3 className="text-xl font-black text-white tracking-tighter">Documento {doc.number}</h3>
         </div>
         <div className="flex items-center gap-4">
-          <button 
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-6 py-4 bg-white/5 border border-white/5 rounded-2xl text-slate-400 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 hover:text-white transition-all shadow-xl"
-          >
+          <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-4 bg-white/5 border border-white/5 rounded-2xl text-slate-400 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 hover:text-white transition-all">
             <Printer size={16} /> Imprimir
           </button>
-          <button 
-            onClick={handlePrint} 
-            className="flex items-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-2xl shadow-purple-500/20"
-          >
+          <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-2xl">
             <FileDown size={16} /> Descargar PDF
           </button>
         </div>
       </div>
 
-      <div className="relative bg-white rounded-[2.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden max-w-4xl mx-auto border border-white/5 print:shadow-none print:border-none print:m-0 print:rounded-none">
-        <div className="relative z-10">
-          {/* Header Section */}
-          <div className="p-10 md:p-14 flex flex-col md:flex-row justify-between items-start gap-10 border-b border-slate-50" style={{ backgroundColor: themeColorLight }}>
-            <div className="flex items-center gap-8">
-              <div className="relative">
-                {settings?.logo_url ? (
-                  <img src={settings.logo_url} alt="Logo" className="w-28 h-28 object-contain rounded-3xl bg-white p-4 shadow-xl border border-slate-100" />
-                ) : (
-                  <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-white text-4xl font-black shadow-2xl" style={{ backgroundColor: themeColor }}>
-                    {settings?.company_name?.[0] || 'F'}
-                  </div>
-                )}
+      {/* CSS impresión */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @page { margin: 1.2cm; size: A4 portrait; }
+        @media print {
+          html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; }
+          .print\\:hidden { display: none !important; }
+
+          /* Documento: sin sombra, sin overflow:hidden (overflow:hidden rompe saltos de página) */
+          .invoice-doc {
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            overflow: visible !important;
+          }
+
+          /* Cabecera compacta */
+          .inv-header { padding: 20px 32px !important; }
+
+          /* Contenido: flex column con altura mínima para llenar la página */
+          /* El inv-spacer crece para empujar el footer hacia abajo */
+          .inv-content {
+            padding: 20px 32px 24px !important;
+            min-height: 200mm !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+
+          /* Sección cliente */
+          .inv-client { margin-bottom: 20px !important; }
+
+          /* Tabla */
+          .inv-table { margin-bottom: 16px !important; }
+          .inv-table thead th { padding-bottom: 8px !important; font-size: 8px !important; }
+          .inv-table tbody td { padding-top: 7px !important; padding-bottom: 7px !important; font-size: 12px !important; }
+
+          /* Espaciador: crece para empujar footer abajo (con pocos conceptos) */
+          .inv-spacer { flex: 1 !important; min-height: 8px !important; }
+
+          /* Footer layout con CSS table */
+          .inv-footer { padding-top: 16px !important; }
+          .inv-footer-table { display: table !important; width: 100% !important; page-break-inside: avoid !important; break-inside: avoid !important; }
+          .inv-footer-left  { display: table-cell !important; vertical-align: bottom !important; width: 50% !important; padding-right: 16px !important; }
+          .inv-footer-right { display: table-cell !important; vertical-align: bottom !important; width: 50% !important; text-align: right !important; }
+        }
+      `}} />
+
+      {/* Documento */}
+      <div className="invoice-doc bg-white rounded-[2rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.35)] max-w-3xl mx-auto overflow-hidden border border-slate-100">
+
+        {/* Cabecera */}
+        <div className="inv-header px-12 py-10 flex justify-between items-start border-b border-slate-100" style={{ backgroundColor: themeBg }}>
+          <div className="flex items-center gap-6">
+            {settings?.logo_url ? (
+              <img src={settings.logo_url} alt="Logo" className="w-20 h-20 object-contain rounded-2xl bg-white p-2 shadow border border-slate-100" />
+            ) : (
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-black" style={{ backgroundColor: themeColor }}>
+                {settings?.company_name?.[0] || 'F'}
               </div>
-              <div>
-                <h1 className="text-5xl font-black tracking-tighter leading-none mb-4" style={{ color: themeColor }}>
-                  {isBudget ? 'PRESUPUESTO' : 'FACTURA'}
-                </h1>
-                <div className="flex items-center gap-4">
-                  <span className="px-4 py-1.5 bg-white border border-slate-100 rounded-xl text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] shadow-sm">
-                    {doc.number}
-                  </span>
-                  <span className="text-xs font-black text-slate-300 uppercase tracking-widest">{doc.date}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="md:text-right">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tighter mb-4">{settings?.company_name}</h2>
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">CIF: {settings?.cif}</p>
-                <p className="text-[11px] text-slate-500 font-bold uppercase tracking-tight">{settings?.address}</p>
-                <p className="text-[11px] text-slate-500 font-bold uppercase tracking-tight">{settings?.zip} {settings?.city}</p>
-                <p className="text-[11px] text-slate-500 font-bold uppercase tracking-tight">{settings?.province}</p>
-                <p className="text-[11px] text-slate-600 font-black uppercase tracking-widest pt-2 underline decoration-slate-200">{settings?.email}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-10 md:p-16">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-20 mb-16">
-               <div className="space-y-6">
-                  <div className="flex items-center gap-4 border-l-4 pl-6" style={{ borderColor: themeColor }}>
-                    <div className="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-xl">
-                      <User size={20} />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">DATOS RECEPTOR</span>
-                      <p className="text-3xl font-black text-slate-900 tracking-tighter mt-1">{doc.client_name}</p>
-                    </div>
-                  </div>
-                  <div className="pl-20 space-y-1">
-                    <p className="text-sm font-black text-slate-400 uppercase tracking-widest mb-3">NIF/CIF: {doc.client_dni}</p>
-                    <p className="text-lg font-bold text-slate-600 leading-tight">{doc.client_address}</p>
-                    <p className="text-sm font-black text-slate-400 tracking-tighter uppercase italic">
-                      {doc.client_zip} {doc.client_city || doc.client_province}
-                    </p>
-                  </div>
-               </div>
-
-               <div className="flex flex-col justify-end md:items-end gap-6">
-                  <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100/50 w-full sm:w-80">
-                     <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-200/50">
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">FECHA OPERACIÓN</span>
-                        <span className="text-sm font-black text-slate-900">{doc.date}</span>
-                     </div>
-                     <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">ESTADO</span>
-                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${doc.status === 'Pagada' || doc.status === 'Aceptado' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                           {doc.status}
-                        </span>
-                     </div>
-                  </div>
-               </div>
-            </div>
-
-            <div className="mb-16">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b-4 border-slate-900 text-slate-900">
-                    <th className="pb-6 text-[11px] font-black uppercase tracking-[0.3em]">Descripción Detallada</th>
-                    <th className="pb-6 text-[11px] font-black uppercase tracking-[0.3em] text-center w-24">Cant.</th>
-                    <th className="pb-6 text-[11px] font-black uppercase tracking-[0.3em] text-right w-44">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {doc.items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="py-8 font-bold text-slate-800 text-lg leading-relaxed">{item.concept}</td>
-                      <td className="py-8 text-center text-slate-500 font-bold text-lg">{item.quantity}</td>
-                      <td className="py-8 text-right font-black text-slate-900 text-xl tracking-tighter tabular-nums">{formatCurrency(item.total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex flex-col md:flex-row items-end justify-between gap-16 pt-10">
-              {!isBudget ? (
-                <div className="flex items-center gap-6">
-                  <div className="p-5 bg-white rounded-3xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-50">
-                    <QRCodeSVG 
-                      value={`faktio:2026:${doc.number}:${doc.total}`}
-                      size={100}
-                      level="H"
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <div className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm">
-                      <ShieldCheck size={14} /> Certificado VeriFactu Ley 11/2021
-                    </div>
-                    <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-relaxed">
-                      Suma de Control: {doc.number.split('-').pop()}<br/>
-                      Fecha Inalterable: {doc.date}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 max-w-sm">
-                   <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100">
-                      <p className="text-[10px] font-bold text-amber-900/40 uppercase tracking-widest leading-relaxed">
-                        Este presupuesto es un documento comercial proforma sin validez tributaria hasta su conversión en factura legal certificada.
-                      </p>
-                   </div>
-                </div>
-              )}
-
-              <div className="w-full md:w-96 p-10 bg-slate-900 rounded-[3rem] shadow-3xl shadow-slate-900/60">
-                 <div className="space-y-4 pb-6 border-b border-white/10">
-                   <div className="flex justify-between text-[12px] font-black text-white/30 uppercase tracking-widest">
-                     <span>Base Operación</span>
-                     <span className="text-white/70">{formatCurrency(doc.subtotal)}</span>
-                   </div>
-                   <div className="flex justify-between text-[12px] font-black text-white/30 uppercase tracking-widest">
-                     <span>Cuota IVA ({doc.iva_rate}%)</span>
-                     <span className="text-white/70">{formatCurrency(doc.iva_amount)}</span>
-                   </div>
-                 </div>
-                 <div className="flex justify-between items-center pt-6">
-                   <span className="text-xs font-black text-white tracking-[0.5em] uppercase opacity-30">Total Neto</span>
-                   <span className="text-4xl font-black text-white tracking-tighter tabular-nums drop-shadow-2xl">
-                     {formatCurrency(doc.total)}
-                   </span>
-                 </div>
+            )}
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ color: themeColor }}>{docTitle}</h1>
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500">{doc.number}</span>
+                <span className="text-xs text-slate-400 font-semibold">{doc.date}</span>
               </div>
             </div>
           </div>
-
-          <div className="p-10 border-t border-slate-50 flex items-center justify-between bg-slate-50/50 print:hidden">
-             <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-lg">
-                   <Zap size={18} fill="white" />
-                </div>
-                <div>
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Faktio 2026 Engine</p>
-                   <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Cumple con la Ley General Tributaria</p>
-                </div>
-             </div>
-             
-             {isBudget && doc.status !== 'Convertido' && onConvert && (
-               <button 
-                 onClick={onConvert}
-                 className="px-8 py-5 bg-amber-500 hover:bg-amber-600 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-amber-500/20 transition-all active:scale-95"
-               >
-                 Activar Factura Legal
-               </button>
-             )}
+          <div className="text-right">
+            <p className="text-sm font-bold text-slate-800 mb-1">{settings?.company_name}</p>
+            <p className="text-xs text-slate-500 font-semibold">NIF/CIF: {settings?.cif}</p>
+            {settings?.address  && <p className="text-xs text-slate-400">{settings.address}</p>}
+            <p className="text-xs text-slate-400">{settings?.zip} {settings?.city}</p>
+            {settings?.province && <p className="text-xs text-slate-400">{settings.province}</p>}
+            {settings?.email    && <p className="text-xs text-slate-500 font-semibold mt-1">{settings.email}</p>}
           </div>
         </div>
+
+        {/* Contenido */}
+        <div className="inv-content px-12 py-8">
+
+          {/* Receptor + estado */}
+          <div className="inv-client grid grid-cols-2 gap-10 mb-8">
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Facturado a</p>
+              <div className="border-l-2 pl-4" style={{ borderColor: themeColor }}>
+                <p className="text-sm font-bold text-slate-800 mb-0.5">{doc.client_name}</p>
+                {doc.client_dni     && <p className="text-xs text-slate-500 font-semibold">NIF/CIF: {doc.client_dni}</p>}
+                {doc.client_address && <p className="text-xs text-slate-400">{doc.client_address}</p>}
+                {(doc.client_zip || doc.client_city) && (
+                  <p className="text-xs text-slate-400">{doc.client_zip} {doc.client_city}</p>
+                )}
+                {doc.client_province && <p className="text-xs text-slate-400">{doc.client_province}</p>}
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <div className="w-48 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-200">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fecha</span>
+                  <span className="text-xs font-bold text-slate-700">{doc.date}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Estado</span>
+                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                    doc.status === 'Pagada' || doc.status === 'Aceptado' ? 'bg-emerald-100 text-emerald-700' :
+                    doc.status === 'Cancelada' || doc.status === 'Rechazado' ? 'bg-red-100 text-red-700' :
+                    'bg-amber-100 text-amber-700'
+                  }`}>{doc.status}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabla conceptos */}
+          <table className="inv-table w-full text-left border-collapse mb-6">
+            <thead>
+              <tr style={{ borderBottom: `2px solid ${themeColor}` }}>
+                <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Descripción</th>
+                <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center w-16">Cant.</th>
+                <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right w-32">Importe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {doc.items.map((item, idx) => (
+                <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? 'transparent' : '#f8fafc' }}>
+                  <td className="py-3 pr-4 text-sm text-slate-700">{item.concept}</td>
+                  <td className="py-3 text-center text-sm text-slate-400">{item.quantity}</td>
+                  <td className="py-3 text-right text-sm font-bold text-slate-800 tabular-nums">{fmt(item.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Espaciador: en pantalla da separación visual; en print crece para bajar el footer */}
+          <div className="inv-spacer" style={{ minHeight: '32px' }} />
+
+          {/* Footer: QR (izq) + Totales (der) */}
+          <div className="inv-footer inv-footer-table pt-5 border-t border-slate-100" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px' }}>
+
+            {/* Izquierda */}
+            <div className="inv-footer-left" style={{ flex: 1 }}>
+              {!isBudget && !isAbono ? (
+                <div className="flex items-end gap-4">
+                  <div style={{ padding: '10px', background: 'white', borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', flexShrink: 0 }}>
+                    <QRCodeSVG value={`faktio:2026:${doc.number}:${doc.total}`} size={60} level="H" />
+                  </div>
+                  <div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: '8px', fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                      ✓ Ley 11/2021 VeriFactu
+                    </div>
+                    <p className="text-[9px] text-slate-400">Ref: {doc.number.split('-').pop()} · {doc.date}</p>
+                  </div>
+                </div>
+              ) : isBudget ? (
+                <div style={{ padding: '12px', background: themeBg, border: `1px solid ${themeBorder}`, borderRadius: '10px', maxWidth: '240px' }}>
+                  <p style={{ fontSize: '9px', color: themeColor, margin: 0, lineHeight: 1.5 }}>
+                    Presupuesto sin validez tributaria hasta su conversión en factura legal.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', maxWidth: '240px' }}>
+                  <p style={{ fontSize: '9px', color: '#b91c1c', margin: 0, lineHeight: 1.5 }}>
+                    Nota de crédito que cancela la factura original.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Derecha: tarjeta totales */}
+            <div className="inv-footer-right" style={{ flexShrink: 0, width: '272px' }}>
+              <div style={{ border: `1px solid ${themeBorder}`, borderRadius: '12px', overflow: 'hidden', width: '272px' }}>
+                <div style={{ backgroundColor: themeBg }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 20px', fontSize: '12px', color: '#64748b', borderBottom: '1px solid #f1f5f9' }}>
+                    <span>Base imponible</span>
+                    <span style={{ fontWeight: 600, color: '#334155' }}>{fmt(doc.subtotal)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 20px', fontSize: '12px', color: '#64748b', borderBottom: '1px solid #f1f5f9' }}>
+                    <span>IVA ({doc.iva_rate}%)</span>
+                    <span style={{ fontWeight: 600, color: '#334155' }}>{fmt(doc.iva_amount)}</span>
+                  </div>
+                  {hasIrpf && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 20px', fontSize: '12px', background: '#fffbeb', color: '#92400e', borderBottom: '1px solid #fde68a', fontWeight: 600 }}>
+                      <span>Ret. IRPF ({irpfRate}%)</span>
+                      <span>-{fmt(irpfAmount)}</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', backgroundColor: themeBg, borderTop: `2px solid ${themeColor}50` }}>
+                  <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: themeColor }}>
+                    {hasIrpf ? 'A COBRAR' : 'TOTAL'}
+                  </span>
+                  <span style={{ fontSize: '22px', fontWeight: 900, color: themeColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                    {fmt(aCobrar)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Pie oculto en impresión */}
+        <div className="px-12 py-5 border-t border-slate-100 flex items-center justify-between bg-slate-50 print:hidden">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+              <Zap size={13} fill="white" />
+            </div>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Faktio 2026 · Ley General Tributaria</p>
+          </div>
+          {isBudget && doc.status !== 'Convertido' && onConvert && (
+            <button onClick={onConvert} className="px-6 py-3 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg transition-all hover:scale-105 active:scale-95" style={{ backgroundColor: themeColor }}>
+              Convertir en Factura Legal
+            </button>
+          )}
+        </div>
+
       </div>
     </div>
   );

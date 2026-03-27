@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  Search, 
-  Trash2, 
-  Eye, 
-  Calendar, 
-  User, 
-  ChevronDown, 
-  ShieldCheck, 
-  Clock, 
-  RotateCcw, 
+import {
+  FileText,
+  Search,
+  Trash2,
+  Eye,
+  Calendar,
+  User,
+  ChevronDown,
+  ShieldCheck,
+  Clock,
+  RotateCcw,
   AlertTriangle,
   Receipt,
   Filter,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Download,
+  ArrowRightCircle,
+  Pencil,
+  XCircle
 } from 'lucide-react';
 import { DocumentData, DocumentStatus } from '../types';
 import Card from './common/Card';
@@ -56,8 +60,9 @@ const STATUS_CONFIG: Record<string, { label: string, color: string, bg: string }
   'Emitida': { label: 'Emitida', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
   'Pagada': { label: 'Pagada', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
   'Rectificativa': { label: 'Rectificativa', color: 'text-rose-400', bg: 'bg-rose-500/10 border-rose-500/20' },
-  'Cancelada': { label: 'Cancelada', color: 'text-slate-500', bg: 'bg-white/5' },
+  'Cancelada': { label: 'Cancelada', color: 'text-slate-500', bg: 'bg-white/5 border-white/10' },
   'Pendiente': { label: 'Pendiente', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+  'Definitivo': { label: 'Definitivo', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
   'Aceptado': { label: 'Aceptado', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
   'Rechazado': { label: 'Rechazado', color: 'text-rose-400', bg: 'bg-rose-500/10 border-rose-500/20' },
   'Convertido': { label: 'Convertido', color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
@@ -97,6 +102,45 @@ export default function HistoryView({ onEdit, onPreview, onRectify }: Props) {
     }
   };
 
+  const handleConvertToInvoice = async (doc: DocumentData) => {
+    if (!confirm('¿Convertir este presupuesto en una factura emitida?')) return;
+    try {
+      // Marcar el presupuesto como Convertido en el servidor
+      await handleStatusChange(doc.id!, 'Convertido');
+      // Fetch siguiente número de factura
+      const token = localStorage.getItem('token');
+      const nextRes = await fetch('/api/next-number/invoice', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const nextData = await nextRes.json();
+      const newInvoice: DocumentData = {
+        ...doc,
+        id: undefined,
+        type: 'invoice' as any,
+        number: nextData.number || '',
+        status: 'Emitida' as any,
+        date: new Date().toISOString().split('T')[0],
+      };
+      onEdit(newInvoice);
+    } catch (err) {
+      console.error('Error converting to invoice:', err);
+    }
+  };
+
+  const handleCancelInvoice = async (doc: DocumentData) => {
+    if (!confirm(`¿Cancelar la factura ${doc.number}? Se creará automáticamente un abono (nota de crédito).`)) return;
+    try {
+      const res = await authFetch(`/api/documents/cancel/${doc.id}`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Factura cancelada. Abono ${data.aboNumber} creado automáticamente.`);
+        fetchDocuments();
+      }
+    } catch (err) {
+      console.error('Error cancelling invoice:', err);
+    }
+  };
+
   const handleDelete = async (id: number) => {
     if (!confirm('¿Eliminar este presupuesto?')) return;
     try {
@@ -124,9 +168,24 @@ export default function HistoryView({ onEdit, onPreview, onRectify }: Props) {
            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mt-2">Módulo de Inalterabilidad VeriFactu</p>
         </div>
         
-        <div className="flex glass p-1 rounded-2xl">
-           <TabButton active={activeTab === 'invoices'} onClick={() => { setActiveTab('invoices'); setStatusFilter('all'); }} label="Facturas" icon={<ShieldCheck size={14} />} />
-           <TabButton active={activeTab === 'quotes'} onClick={() => { setActiveTab('quotes'); setStatusFilter('all'); }} label="Presupuestos" icon={<FileText size={14} />} />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              const token = localStorage.getItem('token');
+              const res = await fetch('/api/export/incomes', { headers: { Authorization: `Bearer ${token}` } });
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = 'libro_ingresos.csv'; a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-500/20 transition-all"
+          >
+            <Download size={13} /> Exportar CSV
+          </button>
+          <div className="flex glass p-1 rounded-2xl">
+            <TabButton active={activeTab === 'invoices'} onClick={() => { setActiveTab('invoices'); setStatusFilter('all'); }} label="Facturas" icon={<ShieldCheck size={14} />} />
+            <TabButton active={activeTab === 'quotes'} onClick={() => { setActiveTab('quotes'); setStatusFilter('all'); }} label="Presupuestos" icon={<FileText size={14} />} />
+          </div>
         </div>
       </div>
 
@@ -142,24 +201,26 @@ export default function HistoryView({ onEdit, onPreview, onRectify }: Props) {
             />
          </div>
          <div className="relative w-full md:w-56">
-            <select 
+            <select
                value={statusFilter}
                onChange={e => setStatusFilter(e.target.value)}
-               className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl outline-none font-black text-[10px] uppercase tracking-widest text-slate-400 focus:ring-4 focus:ring-purple-500/10 transition-all shadow-inner appearance-none cursor-pointer"
+               className="w-full px-5 py-4 rounded-2xl outline-none font-black text-[10px] uppercase tracking-widest focus:ring-4 focus:ring-purple-500/10 transition-all shadow-inner appearance-none cursor-pointer"
+               style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)', color: '#94a3b8' }}
             >
-               <option value="all">Filtro Estado</option>
+               <option value="all" style={{ backgroundColor: '#1e293b', color: 'white' }}>Filtro Estado</option>
                {activeTab === 'invoices' ? (
                   <>
-                     <option value="Borrador">Borrador</option>
-                     <option value="Emitida">Emitida</option>
-                     <option value="Pagada">Pagada</option>
-                     <option value="Rectificativa">Rectificativa</option>
+                     <option value="Emitida" style={{ backgroundColor: '#1e293b', color: 'white' }}>Emitida</option>
+                     <option value="Pagada" style={{ backgroundColor: '#1e293b', color: 'white' }}>Pagada</option>
+                     <option value="Cancelada" style={{ backgroundColor: '#1e293b', color: 'white' }}>Cancelada</option>
                   </>
                ) : (
                   <>
-                     <option value="Pendiente">Pendiente</option>
-                     <option value="Aceptado">Aceptado</option>
-                     <option value="Convertido">Convertido</option>
+                     <option value="Borrador" style={{ backgroundColor: '#1e293b', color: 'white' }}>Borrador</option>
+                     <option value="Definitivo" style={{ backgroundColor: '#1e293b', color: 'white' }}>Definitivo</option>
+                     <option value="Aceptado" style={{ backgroundColor: '#1e293b', color: 'white' }}>Aceptado</option>
+                     <option value="Rechazado" style={{ backgroundColor: '#1e293b', color: 'white' }}>Rechazado</option>
+                     <option value="Convertido" style={{ backgroundColor: '#1e293b', color: 'white' }}>Convertido</option>
                   </>
                )}
             </select>
@@ -190,24 +251,25 @@ export default function HistoryView({ onEdit, onPreview, onRectify }: Props) {
 
                      <div className="flex flex-col items-end gap-2 px-6 border-r border-white/5">
                         <div className="relative">
-                          <select 
+                          <select
                             value={doc.status}
                             onChange={(e) => handleStatusChange(doc.id!, e.target.value)}
-                            className={`appearance-none pl-4 pr-8 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border outline-none cursor-pointer transition-all shadow-lg ${STATUS_CONFIG[doc.status]?.bg} ${STATUS_CONFIG[doc.status]?.color}`}
+                            className={`appearance-none pl-4 pr-8 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border outline-none cursor-pointer transition-all shadow-lg ${STATUS_CONFIG[doc.status]?.bg || 'bg-white/5'} ${STATUS_CONFIG[doc.status]?.color || 'text-slate-400'}`}
+                            style={{ backgroundColor: undefined }}
                           >
                             {doc.type === 'invoice' ? (
                               <>
-                                <option value="Borrador">Borrador</option>
-                                <option value="Emitida">Emitida</option>
-                                <option value="Pagada">Pagada</option>
-                                <option value="Rectificativa">Rectificativa</option>
+                                <option value="Emitida" style={{ backgroundColor: '#1e293b', color: 'white' }}>Emitida</option>
+                                <option value="Pagada" style={{ backgroundColor: '#1e293b', color: 'white' }}>Pagada</option>
+                                <option value="Cancelada" style={{ backgroundColor: '#1e293b', color: 'white' }}>Cancelada</option>
                               </>
                             ) : (
                               <>
-                                <option value="Pendiente">Pendiente</option>
-                                <option value="Aceptado">Aceptado</option>
-                                <option value="Rechazado">Rechazado</option>
-                                <option value="Convertido" disabled>Convertido</option>
+                                <option value="Borrador" style={{ backgroundColor: '#1e293b', color: 'white' }}>Borrador</option>
+                                <option value="Definitivo" style={{ backgroundColor: '#1e293b', color: 'white' }}>Definitivo</option>
+                                <option value="Aceptado" style={{ backgroundColor: '#1e293b', color: 'white' }}>Aceptado</option>
+                                <option value="Rechazado" style={{ backgroundColor: '#1e293b', color: 'white' }}>Rechazado</option>
+                                <option value="Convertido" disabled style={{ backgroundColor: '#1e293b', color: 'white' }}>Convertido</option>
                               </>
                             )}
                           </select>
@@ -218,10 +280,14 @@ export default function HistoryView({ onEdit, onPreview, onRectify }: Props) {
 
                      <div className="flex items-center gap-2">
                         <ActionButton icon={<Eye size={20} />} onClick={() => onPreview(doc)} title="Ver / Imprimir" />
-                        {doc.type === 'invoice' && !doc.is_rectificative ? (
-                          <ActionButton icon={<RotateCcw size={20} />} onClick={() => onRectify?.(doc)} title="Rectificar" accent="rose" />
+                        {doc.type === 'invoice' && !doc.is_rectificative && doc.status !== 'Cancelada' ? (
+                          <ActionButton icon={<XCircle size={20} />} onClick={() => handleCancelInvoice(doc)} title="Cancelar (Crear Abono)" accent="rose" />
                         ) : doc.type === 'quote' && doc.status !== 'Convertido' ? (
-                          <ActionButton icon={<Trash2 size={20} />} onClick={() => handleDelete(doc.id!)} title="Eliminar" danger />
+                          <>
+                            <ActionButton icon={<Pencil size={20} />} onClick={() => onEdit(doc)} title="Editar" />
+                            <ActionButton icon={<ArrowRightCircle size={20} />} onClick={() => handleConvertToInvoice(doc)} title="Convertir a Factura" accent="green" />
+                            <ActionButton icon={<Trash2 size={20} />} onClick={() => handleDelete(doc.id!)} title="Eliminar" danger />
+                          </>
                         ) : null}
                      </div>
                   </div>
@@ -247,9 +313,10 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
    );
 }
 
-function ActionButton({ icon, onClick, title, danger, accent }: { icon: React.ReactNode, onClick: () => void, title: string, danger?: boolean, accent?: 'rose' }) {
-  const colors = danger ? "hover:bg-rose-500/10 text-slate-600 hover:text-rose-400" : 
+function ActionButton({ icon, onClick, title, danger, accent }: { icon: React.ReactNode, onClick: () => void, title: string, danger?: boolean, accent?: 'rose' | 'green' }) {
+  const colors = danger ? "hover:bg-rose-500/10 text-slate-600 hover:text-rose-400" :
                  accent === 'rose' ? "hover:bg-rose-500/10 text-slate-600 hover:text-rose-400" :
+                 accent === 'green' ? "hover:bg-emerald-500/10 text-slate-600 hover:text-emerald-400" :
                  "hover:bg-white/10 text-slate-600 hover:text-white";
   return (
     <button onClick={onClick} className={`p-3 rounded-xl transition-all ${colors} border border-transparent hover:border-white/5 shadow-2xl`} title={title}>

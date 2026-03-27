@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 interface Props {
-    onLogin: (token: string) => void;
+    onLogin: (token: string, isNew?: boolean) => void;
 }
 
 const WORDS_POOL = ["alfa", "bravo", "delta", "ecos", "foxtrot", "golf", "hotel", "india", "julieta", "kilo", "lima", "mike", "noviembre", "oscar", "papa", "quebec", "romeo", "sierra", "tango", "uniforme", "victor", "whisky", "rayos", "zulu"];
@@ -140,7 +140,7 @@ export default function AuthView({ onLogin }: Props) {
     const handleVerifySeed = () => {
         if (verifyWord.toLowerCase().trim() === seed[verifyIndex]) {
             localStorage.setItem('token', tempToken);
-            onLogin(tempToken);
+            onLogin(tempToken, true);
         } else {
             setError(`Palabra #${verifyIndex + 1} incorrecta`);
             setVerifyWord('');
@@ -216,24 +216,24 @@ export default function AuthView({ onLogin }: Props) {
                             )}
 
                             {step === 'seed' && (
-                                <motion.div key="seed" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6 text-center">
+                                <motion.div key="seed" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-5 text-center">
                                     <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
-                                        <ShieldAlert className="text-emerald-400 mx-auto mb-2" size={24} />
-                                        <h2 className="text-[12px] font-black text-emerald-400 uppercase tracking-widest mb-1">Mnemonic Seed Faktio</h2>
-                                        <p className="text-[9px] text-slate-500 leading-tight font-bold">Sin esta frase no podrás recuperar tu cuenta si olvidas el PIN/Password.</p>
+                                        <ShieldAlert className="text-emerald-400 mx-auto mb-2" size={22} />
+                                        <h2 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-1">Frase de Recuperación</h2>
+                                        <p className="text-[9px] text-slate-500 leading-tight font-bold">Guarda estas 12 palabras en un lugar seguro. Las necesitarás si olvidas tu contraseña o PIN.</p>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-2 px-1">
+                                    <div className="grid grid-cols-3 gap-1.5 px-1">
                                         {seed.map((word, i) => (
-                                            <div key={i} className="py-2.5 px-3 bg-white/5 border border-white/5 rounded-xl text-[10px] font-mono font-bold text-slate-300 text-left flex items-center shadow-inner">
-                                                <span className="opacity-20 mr-2 text-[8px] italic">{i + 1}</span> {word}
+                                            <div key={i} className="py-2 px-2 bg-white/5 border border-white/5 rounded-xl text-[10px] font-mono font-bold text-slate-300 text-left flex items-center shadow-inner">
+                                                <span className="opacity-20 mr-1.5 text-[8px]">{i + 1}.</span> {word}
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="space-y-3 pt-2">
-                                        <button onClick={copyToClipboard} className="w-full py-3 bg-white/5 text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest border border-white/5 hover:text-white transition-all flex items-center justify-center gap-2">
-                                            {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />} {copied ? 'Lista Copiada' : 'Copia de Seguridad'}
+                                    <div className="space-y-2 pt-1">
+                                        <button onClick={copyToClipboard} className="w-full py-2.5 bg-white/5 text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest border border-white/5 hover:text-white transition-all flex items-center justify-center gap-2">
+                                            {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />} {copied ? 'Copiado' : 'Copiar palabras'}
                                         </button>
-                                        <button onClick={() => setStep('verify_seed')} className="w-full py-5 bg-white text-slate-950 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-2xl hover:scale-[1.02] transition-all">He Guardado las palabras</button>
+                                        <button onClick={() => setStep('verify_seed')} className="w-full py-4 bg-white text-slate-950 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-2xl hover:scale-[1.02] transition-all">He guardado la frase</button>
                                     </div>
                                 </motion.div>
                             )}
@@ -241,12 +241,12 @@ export default function AuthView({ onLogin }: Props) {
                             {step === 'verify_seed' && (
                                 <motion.div key="verify_seed" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-8 text-center">
                                     <div className="space-y-2">
-                                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Protocolo de Verificación</h2>
-                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Confirma la palabra fiscal <span className="text-purple-400">#{verifyIndex + 1}</span></p>
+                                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Verificación</h2>
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Escribe la palabra número <span className="text-purple-400">#{verifyIndex + 1}</span> de tu frase</p>
                                     </div>
                                     <div className="space-y-4">
                                         <input type="text" value={verifyWord} onChange={e => setVerifyWord(e.target.value)} className="w-full px-6 py-5 bg-white/5 border border-white/5 rounded-2xl text-white outline-none focus:bg-white/10 text-center font-black text-lg uppercase transition-all shadow-inner" placeholder="..." autoFocus />
-                                        <button onClick={handleVerifySeed} className="w-full py-5 bg-purple-600 text-white rounded-2xl font-black text-[12px] uppercase tracking-widest shadow-2xl">Acceder al Nodo</button>
+                                        <button onClick={handleVerifySeed} className="w-full py-5 bg-purple-600 text-white rounded-2xl font-black text-[12px] uppercase tracking-widest shadow-2xl">Confirmar y Entrar</button>
                                     </div>
                                 </motion.div>
                             )}

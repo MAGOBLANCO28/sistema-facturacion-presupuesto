@@ -62,7 +62,9 @@ export default function SettingsView({ settings, onUpdate }: Props) {
     if (settings) {
       setFormData({
         ...settings,
-        zip: (settings as any).zip || ''
+        zip: (settings as any).zip || '',
+        account_type: (settings as any).account_type || 'autonomo',
+        irpf_rate: (settings as any).irpf_rate || 15,
       });
     }
   }, [settings]);
@@ -199,6 +201,49 @@ export default function SettingsView({ settings, onUpdate }: Props) {
                     <InputField label="Provincia" value={formData.province} onChange={(e: any) => setFormData({...formData, province: e.target.value})} placeholder="Madrid" />
                     <InputField label="C.P." value={formData.zip} onChange={(e: any) => setFormData({...formData, zip: e.target.value})} placeholder="28001" />
                  </div>
+              </div>
+
+              {/* Tipo de Actividad */}
+              <div className="pt-2 border-t border-white/5 space-y-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Tipo de Actividad</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['autonomo', 'sl'] as const).map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setFormData({...formData, account_type: type})}
+                      className={`py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border ${
+                        (formData as any).account_type === type
+                          ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
+                          : 'bg-white/5 border-white/5 text-slate-500 hover:text-slate-300'
+                      }`}
+                    >
+                      {type === 'autonomo' ? 'Autónomo' : 'Sociedad Limitada (SL)'}
+                    </button>
+                  ))}
+                </div>
+                {(formData as any).account_type === 'autonomo' && (
+                  <div className="space-y-1.5 px-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Retención IRPF en facturas</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[7, 15].map(rate => (
+                        <button
+                          key={rate}
+                          type="button"
+                          onClick={() => setFormData({...formData, irpf_rate: rate} as any)}
+                          className={`py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border ${
+                            (formData as any).irpf_rate === rate
+                              ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                              : 'bg-white/5 border-white/5 text-slate-500 hover:text-slate-300'
+                          }`}
+                        >
+                          {rate}% {rate === 7 ? '(nuevo autónomo)' : '(general)'}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[9px] text-slate-600 font-bold px-1">7% si llevas menos de 3 años de alta · 15% general</p>
+                  </div>
+                )}
               </div>
             </Card>
 

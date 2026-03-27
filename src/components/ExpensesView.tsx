@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Plus, 
-  Trash2, 
+import {
+  Plus,
+  Trash2,
   Image as ImageIcon,
   Calendar,
   Euro,
@@ -14,7 +14,8 @@ import {
   Zap,
   CheckCircle2,
   AlertCircle,
-  Save
+  Save,
+  Download
 } from 'lucide-react';
 import { Expense } from '../types';
 import Card from './common/Card';
@@ -136,6 +137,20 @@ export default function ExpensesView() {
     }
   };
 
+  const handleDeleteExpense = async (id: number) => {
+    if (!window.confirm('¿Borrar este gasto?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`/api/expenses/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setExpenses(prev => prev.filter(e => e.id !== id));
+    } catch (err) {
+      console.error('Error deleting expense:', err);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -191,15 +206,27 @@ export default function ExpensesView() {
           </h3>
           
           <label className="relative cursor-pointer group flex-1">
-            <div className={`w-full h-full min-h-[140px] rounded-2xl flex flex-col items-center justify-center overflow-hidden border-2 border-dashed transition-all relative z-10 ${scanning ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-white/10 group-hover:border-indigo-500/50 bg-slate-900 group-hover:bg-slate-800'}`}>
-              
+            <div className={`w-full h-full min-h-[160px] rounded-2xl flex flex-col items-center justify-center overflow-hidden border-2 border-dashed transition-all duration-300 relative z-10 ${scanning ? 'border-indigo-400 bg-indigo-950/60' : ocrError ? 'border-rose-500/50 bg-rose-950/20' : 'border-white/10 group-hover:border-indigo-500/50 bg-slate-900 group-hover:bg-slate-800'}`}>
+
               <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleScan} disabled={scanning} />
-              
+
               {scanning ? (
-                <div className="flex flex-col items-center gap-3 text-indigo-400 px-4 text-center">
-                  <Scan size={32} className="animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Analizando con IA...</span>
-                  <span className="text-[9px] text-indigo-300/60 font-bold">Puede tardar unos segundos</span>
+                <div className="flex flex-col items-center gap-4 px-4 text-center w-full">
+                  {/* Spinner grande */}
+                  <div className="relative">
+                    <div className="w-14 h-14 rounded-full border-4 border-indigo-900 border-t-indigo-400 animate-spin" />
+                    <Scan size={20} className="text-indigo-300 absolute inset-0 m-auto" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-black text-indigo-300 uppercase tracking-widest">Analizando con IA</span>
+                    <span className="block text-[9px] text-indigo-400/60 font-bold mt-1">Extrayendo datos del documento...</span>
+                  </div>
+                  {/* Barra de progreso animada */}
+                  <div className="w-full px-4">
+                    <div className="h-1 bg-indigo-900/60 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full animate-[scan_1.5s_ease-in-out_infinite]" style={{width:'60%', animation:'pulse 1.5s ease-in-out infinite'}} />
+                    </div>
+                  </div>
                 </div>
               ) : ocrError ? (
                 <div className="flex flex-col items-center gap-2 text-rose-400 px-4 text-center">
@@ -225,7 +252,7 @@ export default function ExpensesView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <InputField label="Concepto" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Ej. Restaurante Manolo" />
             <InputField label="Proveedor" value={formData.provider} onChange={e => setFormData({...formData, provider: e.target.value})} placeholder="Ej. Restaurante Manolo S.L." />
-            <InputField label="NIF" value={formData.nif} onChange={e => setFormData({...formData, nif: e.target.value})} placeholder="Ej. B12345678" />
+            <InputField label="NIF / CIF" value={formData.nif} onChange={e => setFormData({...formData, nif: e.target.value})} placeholder="Ej. B12345678" />
             <InputField label="Fecha" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} type="date" />
             <div className="space-y-1.5">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Clasificación</label>
@@ -287,6 +314,19 @@ export default function ExpensesView() {
       <Card className="p-0 overflow-hidden bg-white/5 backdrop-blur-md border border-white/10" accent="none">
         <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/5">
            <h3 className="text-sm font-black text-white uppercase tracking-widest">Últimos Gastos</h3>
+           <button
+             onClick={async () => {
+               const token = localStorage.getItem('token');
+               const res = await fetch('/api/export/expenses', { headers: { Authorization: `Bearer ${token}` } });
+               const blob = await res.blob();
+               const url = URL.createObjectURL(blob);
+               const a = document.createElement('a'); a.href = url; a.download = 'libro_gastos.csv'; a.click();
+               URL.revokeObjectURL(url);
+             }}
+             className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-indigo-500/20 transition-all"
+           >
+             <Download size={12} /> Exportar CSV
+           </button>
         </div>
         {loading ? (
           <div className="text-center py-10">
@@ -302,11 +342,12 @@ export default function ExpensesView() {
                   <th className="px-5 py-3">Concepto / Proveedor</th>
                   <th className="px-5 py-3">Categoría</th>
                   <th className="px-5 py-3 text-right">Total</th>
+                  <th className="px-3 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {expenses.map((exp) => (
-                  <tr key={exp.id} className="border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors">
+                  <tr key={exp.id} className="border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors group/row">
                     <td className="px-5 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{new Date(exp.date).toLocaleDateString()}</td>
                     <td className="px-5 py-3">
                        <p className="font-bold text-white text-sm truncate max-w-[200px]">{exp.description}</p>
@@ -318,6 +359,15 @@ export default function ExpensesView() {
                        </span>
                     </td>
                     <td className="px-5 py-3 text-right font-black text-white text-sm tracking-tighter">{formatEuro(exp.amount)}</td>
+                    <td className="px-3 py-3 text-right">
+                      <button
+                        onClick={() => handleDeleteExpense(exp.id)}
+                        className="opacity-0 group-hover/row:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-600 hover:text-rose-400"
+                        title="Borrar gasto"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
