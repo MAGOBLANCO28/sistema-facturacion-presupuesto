@@ -253,7 +253,7 @@ export default function App() {
             )}
 
             {view === 'editor' && (
-              <motion.div key="editor" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}>
+              <motion.div key={`editor-${docType}-${selectedDoc?.id ?? 'new'}`} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}>
                 <DocumentEditor
                   type={docType}
                   initialData={selectedDoc}
