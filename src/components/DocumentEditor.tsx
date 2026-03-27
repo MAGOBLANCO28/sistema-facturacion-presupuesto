@@ -65,13 +65,13 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
       fetch(`/api/next-number/${type}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-        .then(r => r.json())
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
         .then(data => {
           if (data.number) {
             setFormData(prev => ({ ...prev, number: data.number, type }));
           }
         })
-        .catch(() => { });
+        .catch((err) => { console.error('Error obteniendo número de documento:', err); });
     } else {
       setFormData(initialData);
     }

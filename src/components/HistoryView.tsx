@@ -173,12 +173,18 @@ export default function HistoryView({ onEdit, onPreview, onRectify, onCreateAbon
         <div className="flex items-center gap-3">
           <button
             onClick={async () => {
-              const token = localStorage.getItem('token');
-              const res = await fetch('/api/export/incomes', { headers: { Authorization: `Bearer ${token}` } });
-              const blob = await res.blob();
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a'); a.href = url; a.download = 'libro_ingresos.csv'; a.click();
-              URL.revokeObjectURL(url);
+              try {
+                const token = localStorage.getItem('token');
+                const res = await fetch('/api/export/incomes', { headers: { Authorization: `Bearer ${token}` } });
+                if (!res.ok) throw new Error(`Error ${res.status}`);
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'libro_ingresos.csv'; a.click();
+                URL.revokeObjectURL(url);
+              } catch (err) {
+                console.error('Error exportando CSV:', err);
+                alert('No se pudo exportar el CSV. Inténtalo de nuevo.');
+              }
             }}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-500/20 transition-all"
           >

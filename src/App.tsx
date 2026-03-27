@@ -71,6 +71,7 @@ export default function App() {
   const checkFiscalAlerts = async () => {
     try {
       const res = await API('/api/reports/real-income');
+      if (!res.ok) return;
       const report = await res.json();
       const alerts: string[] = [];
       if (report.ivaToPay > 3000) alerts.push("Reserva de IVA elevada (>3000€). Considera pagos a cuenta.");

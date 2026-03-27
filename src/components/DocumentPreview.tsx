@@ -169,7 +169,7 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
               </tr>
             </thead>
             <tbody>
-              {doc.items.map((item, idx) => (
+              {(doc.items || []).map((item, idx) => (
                 <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? 'transparent' : '#f8fafc' }}>
                   <td className="py-3 pr-4 text-sm text-slate-700">{item.concept}</td>
                   <td className="py-3 text-center text-sm text-slate-400">{item.quantity}</td>

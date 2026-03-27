@@ -411,7 +411,11 @@ async function startServer() {
 
   app.patch("/api/documents/:id/status", authMiddleware, async (req: any, res) => {
     const { status } = req.body;
-    await pool.query("UPDATE documents SET status = $1 WHERE id = $2 AND tenant_id = $3", [status, req.params.id, req.tenantId]);
+    const result = await pool.query(
+      "UPDATE documents SET status = $1 WHERE id = $2 AND tenant_id = $3",
+      [status, req.params.id, req.tenantId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Documento no encontrado" });
     res.json({ success: true });
   });
 
@@ -740,20 +744,26 @@ Reglas de cálculo:
 
   // ── CANCELAR FACTURA (crea abono automático) ───────
   app.post("/api/documents/cancel/:id", authMiddleware, async (req: any, res) => {
+    const client = await pool.connect();
     try {
-      const { rows } = await pool.query(
+      await client.query("BEGIN");
+
+      const { rows } = await client.query(
         "SELECT * FROM documents WHERE id = $1 AND tenant_id = $2 AND type = 'invoice'",
         [req.params.id, req.tenantId]
       );
-      if (rows.length === 0) return res.status(404).json({ error: "Factura no encontrada" });
+      if (rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Factura no encontrada" });
+      }
       const doc = rows[0];
 
       // Marcar factura original como Cancelada
-      await pool.query("UPDATE documents SET status = 'Cancelada' WHERE id = $1 AND tenant_id = $2", [doc.id, req.tenantId]);
+      await client.query("UPDATE documents SET status = 'Cancelada' WHERE id = $1 AND tenant_id = $2", [doc.id, req.tenantId]);
 
       // Calcular siguiente número de abono
       const year = new Date().getFullYear();
-      const lastABO = await pool.query(
+      const lastABO = await client.query(
         "SELECT number FROM documents WHERE tenant_id = $1 AND type = 'abono' AND number LIKE $2 ORDER BY number DESC LIMIT 1",
         [req.tenantId, `ABO-${year}-%`]
       );
@@ -766,18 +776,22 @@ Reglas de cálculo:
       const aboNumber = `ABO-${year}-${String(nextNum).padStart(3, '0')}`;
 
       // Crear abono (importes negativos)
-      const aboResult = await pool.query(`
+      const aboResult = await client.query(`
         INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id)
         VALUES ($1,'abono',$2,CURRENT_DATE,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'Emitida',true,$16) RETURNING id`,
         [req.tenantId, aboNumber, doc.client_name, doc.client_dni, doc.client_address, doc.client_city, doc.client_zip, doc.client_province,
-         JSON.stringify(doc.items), -(doc.subtotal || 0), doc.iva_rate, -(doc.iva_amount || 0), -(doc.total || 0),
+         JSON.stringify(doc.items || []), -(doc.subtotal || 0), doc.iva_rate, -(doc.iva_amount || 0), -(doc.total || 0),
          doc.irpf_rate || 0, -(doc.irpf_amount || 0), doc.id]
       );
 
+      await client.query("COMMIT");
       res.json({ success: true, aboNumber, aboId: aboResult.rows[0].id });
     } catch (err) {
+      await client.query("ROLLBACK");
       console.error(err);
       res.status(500).json({ error: "Error al cancelar la factura" });
+    } finally {
+      client.release();
     }
   });
 
