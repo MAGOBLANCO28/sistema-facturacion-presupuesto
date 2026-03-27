@@ -26,7 +26,7 @@ export default function Header({ onMenuClick, onSettingsClick, notifications = [
     <header className="bg-slate-900/80 backdrop-blur-xl border-b border-white/10 p-4 sticky top-0 z-40 flex items-center justify-between print:hidden">
       <div className="flex items-center gap-4">
         {onMenuClick && (
-          <button onClick={onMenuClick} className="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
+          <button onClick={onMenuClick} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
           </button>
         )}
