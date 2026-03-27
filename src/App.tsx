@@ -45,7 +45,7 @@ export default function App() {
   const [docType, setDocType] = useState<DocumentType>('invoice');
   const [selectedDoc, setSelectedDoc] = useState<DocumentData | null>(null);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [notifications, setNotifications] = useState<string[]>([]);
 
