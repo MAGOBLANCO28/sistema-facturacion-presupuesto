@@ -5,6 +5,7 @@ export interface DocumentItem {
   id: string;
   concept: string;
   quantity: number;
+  unit_price: number;
   total: number;
 }
 

@@ -33,7 +33,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
     client_city: '',
     client_zip: '',
     client_province: '',
-    items: [{ id: Math.random().toString(36).substr(2, 9), concept: '', quantity: 1, total: 0 }],
+    items: [{ id: Math.random().toString(36).substr(2, 9), concept: '', quantity: 1, unit_price: 0, total: 0 }],
     subtotal: 0,
     iva_rate: 21,
     iva_amount: 0,
@@ -73,7 +73,13 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
         })
         .catch((err) => { console.error('Error obteniendo número de documento:', err); });
     } else {
-      setFormData(initialData);
+      setFormData({
+        ...initialData,
+        items: (initialData.items || []).map(item => ({
+          ...item,
+          unit_price: item.unit_price ?? (item.quantity > 0 ? parseFloat((item.total / item.quantity).toFixed(2)) : item.total),
+        }))
+      });
     }
   }, [initialData, type]);
 
@@ -97,7 +103,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
   const handleAddItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { id: Math.random().toString(36).substr(2, 9), concept: '', quantity: 1, total: 0 }]
+      items: [...prev.items, { id: Math.random().toString(36).substr(2, 9), concept: '', quantity: 1, unit_price: 0, total: 0 }]
     }));
   };
 
@@ -112,7 +118,14 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
   const handleItemChange = (id: string, field: keyof DocumentItem, value: any) => {
     setFormData(prev => ({
       ...prev,
-      items: prev.items.map(item => item.id === id ? { ...item, [field]: value } : item)
+      items: prev.items.map(item => {
+        if (item.id !== id) return item;
+        const updated = { ...item, [field]: value };
+        if (field === 'quantity' || field === 'unit_price') {
+          updated.total = parseFloat(((updated.quantity || 0) * (updated.unit_price || 0)).toFixed(2));
+        }
+        return updated;
+      })
     }));
   };
 
@@ -280,8 +293,9 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
               <thead>
                 <tr className="bg-slate-950 text-slate-300">
                   <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest">Descripción</th>
-                  <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-center w-24">Cant.</th>
-                  <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-right w-40">Total (€)</th>
+                  <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-center w-20">Cant.</th>
+                  <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-right w-36">Precio unit. (€)</th>
+                  <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-right w-32">Total (€)</th>
                   <th className="w-16"></th>
                 </tr>
               </thead>
@@ -305,12 +319,17 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
                       <input
                         type="number"
                         step="0.01"
-                        value={item.total === 0 ? '' : item.total}
+                        value={item.unit_price === 0 ? '' : item.unit_price}
                         placeholder="0,00"
-                        onChange={e => handleItemChange(item.id, 'total', e.target.value === '' ? 0 : Number(e.target.value))}
+                        onChange={e => handleItemChange(item.id, 'unit_price', e.target.value === '' ? 0 : Number(e.target.value))}
                         onFocus={e => e.target.select()}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 outline-none text-sm text-right font-black text-white tracking-tighter focus:border-purple-400/50 focus:bg-white/10 transition-all"
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 outline-none text-sm text-right font-bold text-slate-300 tracking-tighter focus:border-purple-400/50 focus:bg-white/10 transition-all"
                       />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="w-full px-2 py-1 text-sm text-right font-black text-white tracking-tighter tabular-nums">
+                        {new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(item.total)}
+                      </div>
                     </td>
                     <td className="pr-4 py-4 text-center">
                       <button type="button" onClick={() => handleRemoveItem(item.id)} className="p-2 text-slate-500 hover:text-rose-400 transition-colors" disabled={formData.items.length === 1}>
