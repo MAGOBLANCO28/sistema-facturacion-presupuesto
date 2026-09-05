@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contacto — Faktio Pro</title>
+  <meta name="description" content="Contacta con el equipo de Faktio Pro. Soporte técnico, ventas y consultas generales. Te respondemos en menos de 24 horas." />
+  <link rel="icon" href="logo-512.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','sans-serif'] } } } }</script>
+  <style>
+    * { scroll-behavior: smooth; }
+    .gradient-text { background: linear-gradient(135deg, #a78bfa 0%, #6366f1 50%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .glass { background: rgba(255,255,255,0.04); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(139,92,246,0.12); }
+    .btn-primary { background: linear-gradient(135deg, #7c3aed, #4f46e5); transition: all 0.2s; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 32px rgba(124,58,237,0.4); }
+    .form-input {
+      width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 12px 16px; color: white; font-size: 0.875rem;
+      outline: none; transition: border-color 0.2s;
+    }
+    .form-input:focus { border-color: rgba(139,92,246,0.6); background: rgba(139,92,246,0.05); }
+    .form-input::placeholder { color: #475569; }
+    select.form-input option { background: #0f172a; }
+    details summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="bg-slate-950 text-white font-sans antialiased">
+
+  <!-- NAV -->
+  <nav class="fixed top-0 left-0 right-0 z-50 glass">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="home.html" class="flex items-center gap-3">
+        <img src="logo-512.png" alt="Faktio Pro" class="w-9 h-9 rounded-xl object-cover shadow-lg shadow-violet-500/40 ring-1 ring-violet-500/30" />
+        <span class="font-black text-lg tracking-tight">Faktio<span class="text-violet-400">Pro</span></span>
+      </a>
+      <div class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-400">
+        <a href="home.html#features" class="hover:text-white transition-colors">Funciones</a>
+        <a href="precios.html" class="hover:text-white transition-colors">Precios</a>
+        <a href="home.html#agents" class="hover:text-white transition-colors">Agentes IA</a>
+        <a href="contacto.html" class="text-white transition-colors">Contacto</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/app" class="hidden md:block text-sm font-bold text-slate-400 hover:text-white transition-colors px-4 py-2">Entrar</a>
+        <a href="precios.html" class="btn-primary text-sm font-black text-white px-5 py-2.5 rounded-xl shadow-lg">Empezar gratis</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="pt-32 pb-10 px-6 text-center relative overflow-hidden">
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] rounded-full opacity-10" style="background:radial-gradient(circle, #7c3aed, transparent 70%)"></div>
+    <div class="relative z-10">
+      <p class="text-xs font-black text-violet-400 uppercase tracking-widest mb-4">Estamos aquí</p>
+      <h1 class="text-5xl md:text-6xl font-black tracking-tighter mb-4">
+        Hablemos.<br/><span class="gradient-text">Sin compromiso.</span>
+      </h1>
+      <p class="text-slate-400 text-lg max-w-xl mx-auto">Nuestro equipo responde en menos de 24 horas en días laborables.</p>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT -->
+  <section class="py-10 px-6 pb-24">
+    <div class="max-w-5xl mx-auto grid md:grid-cols-5 gap-8">
+
+      <!-- FORMULARIO (3 cols) -->
+      <div class="md:col-span-3 glass rounded-3xl p-8">
+        <h2 class="text-xl font-black mb-6">Envíanos un mensaje</h2>
+        <form id="contact-form" onsubmit="handleSubmit(event)" class="space-y-5">
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Nombre *</label>
+              <input type="text" name="nombre" required placeholder="Tu nombre" class="form-input" />
+            </div>
+            <div>
+              <label class="block text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Email *</label>
+              <input type="email" name="email" required placeholder="tu@email.com" class="form-input" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Empresa / Autónomo</label>
+            <input type="text" name="empresa" placeholder="Nombre de tu empresa o actividad (opcional)" class="form-input" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Asunto *</label>
+            <select name="asunto" required class="form-input">
+              <option value="" disabled selected>Selecciona el motivo de contacto</option>
+              <option value="soporte">Soporte técnico</option>
+              <option value="ventas">Información sobre planes</option>
+              <option value="kitdigital">Kit Digital / Subvención</option>
+              <option value="asesoria">Plan Asesoría / Multi-cliente</option>
+              <option value="migracion">Migración desde otro programa</option>
+              <option value="facturacion">Facturación y pagos</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Mensaje *</label>
+            <textarea name="mensaje" required rows="5" placeholder="Cuéntanos en qué podemos ayudarte..." class="form-input resize-none"></textarea>
+          </div>
+
+          <div class="flex items-start gap-3">
+            <input type="checkbox" id="rgpd" name="rgpd" required class="mt-1 accent-violet-500 w-4 h-4 shrink-0" />
+            <label for="rgpd" class="text-xs text-slate-500 leading-relaxed">
+              He leído y acepto la <a href="politicas.html" class="text-violet-400 hover:underline">Política de Privacidad</a>. Autorizo el tratamiento de mis datos para responder a mi consulta.
+            </label>
+          </div>
+
+          <button type="submit" class="btn-primary w-full py-4 rounded-2xl font-black text-white text-sm shadow-xl shadow-violet-500/20 flex items-center justify-center gap-2">
+            <svg id="btn-icon" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg>
+            <span id="btn-text">Enviar mensaje</span>
+          </button>
+        </form>
+
+        <!-- Success message -->
+        <div id="success-msg" class="hidden mt-6 rounded-2xl bg-green-500/10 border border-green-500/20 p-5 text-center">
+          <div class="text-3xl mb-3">✓</div>
+          <p class="font-black text-green-400 mb-1">¡Mensaje enviado!</p>
+          <p class="text-sm text-slate-400">Te responderemos en menos de 24 horas en días laborables.</p>
+        </div>
+      </div>
+
+      <!-- INFO LATERAL (2 cols) -->
+      <div class="md:col-span-2 space-y-5">
+
+        <!-- Email directo -->
+        <div class="glass rounded-2xl p-6 card-hover">
+          <div class="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-4">
+            <svg width="20" height="20" fill="none" stroke="#a78bfa" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
+          <p class="text-xs font-black text-slate-500 uppercase tracking-wider mb-1">Email</p>
+          <a href="mailto:hola@faktiopro.com" class="text-violet-400 hover:text-violet-300 font-bold text-sm transition-colors">hola@faktiopro.com</a>
+          <p class="text-xs text-slate-600 mt-1">Respuesta en &lt; 24h laborables</p>
+        </div>
+
+        <!-- Soporte técnico -->
+        <div class="glass rounded-2xl p-6 card-hover">
+          <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
+            <svg width="20" height="20" fill="none" stroke="#60a5fa" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <p class="text-xs font-black text-slate-500 uppercase tracking-wider mb-1">Soporte técnico</p>
+          <a href="mailto:soporte@faktiopro.com" class="text-blue-400 hover:text-blue-300 font-bold text-sm transition-colors">soporte@faktiopro.com</a>
+          <p class="text-xs text-slate-600 mt-1">Para problemas con la app</p>
+        </div>
+
+        <!-- Privacidad ARCO -->
+        <div class="glass rounded-2xl p-6 card-hover">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+            <svg width="20" height="20" fill="none" stroke="#fbbf24" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <p class="text-xs font-black text-slate-500 uppercase tracking-wider mb-1">Derechos ARCO / Privacidad</p>
+          <a href="mailto:privacidad@faktiopro.com" class="text-amber-400 hover:text-amber-300 font-bold text-sm transition-colors">privacidad@faktiopro.com</a>
+          <p class="text-xs text-slate-600 mt-1">Acceso, rectificación, supresión</p>
+        </div>
+
+        <!-- Horario -->
+        <div class="glass rounded-2xl p-5">
+          <p class="text-xs font-black text-slate-500 uppercase tracking-wider mb-3">Horario de atención</p>
+          <div class="space-y-2 text-xs text-slate-400">
+            <div class="flex justify-between"><span>Lun – Vie</span><span class="text-white font-semibold">9:00 – 18:00</span></div>
+            <div class="flex justify-between"><span>Sáb – Dom</span><span class="text-slate-600">Cerrado</span></div>
+            <div class="flex justify-between"><span>Festivos España</span><span class="text-slate-600">Cerrado</span></div>
+          </div>
+          <div class="mt-3 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+            <span class="text-xs text-green-400 font-semibold">Agentes IA activos 24/7</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ RÁPIDA -->
+  <section class="py-16 px-6 max-w-3xl mx-auto">
+    <h2 class="text-2xl font-black tracking-tighter text-center mb-8">Preguntas frecuentes de soporte</h2>
+    <div class="space-y-4">
+      <details class="glass rounded-2xl p-5 group">
+        <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Cómo configuro el agente de cobros? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+        <p class="text-sm text-slate-400 mt-3 leading-relaxed">Ve a Ajustes → Alertas IA dentro de la aplicación. Activa el Agente Cobros, introduce el email de notificación y configura los días de aviso previo. También necesitas configurar las variables SMTP en los secretos de tu espacio.</p>
+      </details>
+      <details class="glass rounded-2xl p-5 group">
+        <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Puedo cambiar mi plan en cualquier momento? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+        <p class="text-sm text-slate-400 mt-3 leading-relaxed">Sí. El cambio se aplica al siguiente período de facturación. Si tienes dudas, escríbenos a <a href="mailto:hola@faktiopro.com" class="text-violet-400 hover:underline">hola@faktiopro.com</a>.</p>
+      </details>
+      <details class="glass rounded-2xl p-5 group">
+        <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Cómo instalo Faktio Pro como app en mi móvil? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+        <p class="text-sm text-slate-400 mt-3 leading-relaxed">En Android (Chrome): menú → "Añadir a pantalla de inicio". En iOS (Safari): botón compartir → "Añadir a pantalla de inicio". La PWA funciona sin conexión para consultar datos ya cargados.</p>
+      </details>
+      <details class="glass rounded-2xl p-5 group">
+        <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Me ayudáis con la migración desde otro software? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+        <p class="text-sm text-slate-400 mt-3 leading-relaxed">Sí. Escríbenos con el nombre del software del que migras y te enviamos las instrucciones de exportación e importación, o lo hacemos nosotros por ti en los planes Profesional y Asesoría.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-white/5 py-10 px-6">
+    <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-slate-600">
+      <div class="flex items-center gap-2">
+        <img src="logo-512.png" alt="Faktio Pro" class="w-6 h-6 rounded-lg object-cover" />
+        <span class="font-black text-slate-500">Faktio<span class="text-violet-500">Pro</span></span>
+        <span>© 2026. Todos los derechos reservados.</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-5">
+        <a href="home.html" class="hover:text-white transition-colors">Inicio</a>
+        <a href="precios.html" class="hover:text-white transition-colors">Precios</a>
+        <a href="politicas.html" class="hover:text-white transition-colors">Privacidad</a>
+        <a href="mailto:hola@faktiopro.com" class="hover:text-white transition-colors">hola@faktiopro.com</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const nav = document.querySelector('nav');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) nav.classList.add('py-2'); else nav.classList.remove('py-2');
+    });
+
+    function handleSubmit(e) {
+      e.preventDefault();
+      const form = e.target;
+      const btn = document.getElementById('btn-text');
+      const icon = document.getElementById('btn-icon');
+      btn.textContent = 'Enviando...';
+
+      // Construcción del mailto como fallback (en producción se usaría un endpoint real)
+      const data = new FormData(form);
+      const nombre = data.get('nombre');
+      const email = data.get('email');
+      const empresa = data.get('empresa') || 'No indicada';
+      const asunto = data.get('asunto');
+      const mensaje = data.get('mensaje');
+
+      const subject = encodeURIComponent(`[Faktio Pro] Contacto: ${asunto} — ${nombre}`);
+      const body = encodeURIComponent(`Nombre: ${nombre}\nEmail: ${email}\nEmpresa: ${empresa}\nAsunto: ${asunto}\n\nMensaje:\n${mensaje}`);
+
+      setTimeout(() => {
+        window.location.href = `mailto:hola@faktiopro.com?subject=${subject}&body=${body}`;
+        form.classList.add('hidden');
+        document.getElementById('success-msg').classList.remove('hidden');
+      }, 600);
+    }
+  </script>
+</body>
+</html>

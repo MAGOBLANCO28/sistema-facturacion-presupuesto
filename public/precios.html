@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Precios — Faktio Pro</title>
+  <meta name="description" content="Planes de Faktio Pro desde 0€. Sin permanencia, cancela cuando quieras. Incluye agentes IA, VeriFactu y soporte." />
+  <link rel="icon" href="logo-512.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
+    }
+  </script>
+  <style>
+    * { scroll-behavior: smooth; }
+    .gradient-text { background: linear-gradient(135deg, #a78bfa 0%, #6366f1 50%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .glass { background: rgba(255,255,255,0.04); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 24px 48px rgba(139,92,246,0.15); }
+    .btn-primary { background: linear-gradient(135deg, #7c3aed, #4f46e5); transition: all 0.2s; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 32px rgba(124,58,237,0.4); }
+    .toggle-active { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; }
+    .toggle-inactive { color: #94a3b8; }
+    .check { color: #4ade80; }
+    .cross { color: #334155; }
+    details summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="bg-slate-950 text-white font-sans antialiased overflow-x-hidden">
+
+  <!-- NAV -->
+  <nav class="fixed top-0 left-0 right-0 z-50 glass">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="home.html" class="flex items-center gap-3">
+        <img src="logo-512.png" alt="Faktio Pro" class="w-9 h-9 rounded-xl object-cover shadow-lg shadow-violet-500/40 ring-1 ring-violet-500/30" />
+        <span class="font-black text-lg tracking-tight">Faktio<span class="text-violet-400">Pro</span></span>
+      </a>
+      <div class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-400">
+        <a href="home.html#features" class="hover:text-white transition-colors">Funciones</a>
+        <a href="precios.html" class="text-white transition-colors">Precios</a>
+        <a href="home.html#agents" class="hover:text-white transition-colors">Agentes IA</a>
+        <a href="contacto.html" class="hover:text-white transition-colors">Contacto</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/app" class="hidden md:block text-sm font-bold text-slate-400 hover:text-white transition-colors px-4 py-2">Entrar</a>
+        <a href="/app" class="btn-primary text-sm font-black text-white px-5 py-2.5 rounded-xl shadow-lg">Empezar gratis</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="pt-36 pb-16 px-6 text-center relative overflow-hidden">
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full opacity-10" style="background:radial-gradient(circle, #7c3aed, transparent 70%)"></div>
+    <div class="relative z-10 max-w-3xl mx-auto">
+      <p class="text-xs font-black text-violet-400 uppercase tracking-widest mb-4">Planes y precios</p>
+      <h1 class="text-5xl md:text-6xl font-black tracking-tighter mb-4">
+        Precios claros.<br/><span class="gradient-text">Sin letra pequeña.</span>
+      </h1>
+      <p class="text-lg text-slate-400 max-w-xl mx-auto mb-8">Todos los planes incluyen IVA. Sin permanencia. Cancela en cualquier momento.</p>
+
+      <!-- Toggle mensual / anual -->
+      <div class="inline-flex items-center gap-1 glass rounded-2xl p-1.5 mb-12">
+        <button id="btn-mensual" onclick="setMode('mensual')" class="px-5 py-2 rounded-xl text-sm font-black transition-all toggle-active">
+          Mensual
+        </button>
+        <button id="btn-anual" onclick="setMode('anual')" class="px-5 py-2 rounded-xl text-sm font-black transition-all toggle-inactive">
+          Anual <span class="text-green-400 text-xs ml-1">−20%</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLANS -->
+  <section class="pb-24 px-6">
+    <div class="max-w-6xl mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
+
+        <!-- Plan Libre -->
+        <div class="glass rounded-3xl p-6 flex flex-col card-hover">
+          <div class="mb-6">
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Plan Libre</p>
+            <div class="flex items-end gap-1">
+              <span class="text-4xl font-black text-white">0€</span>
+              <span class="text-slate-500 text-sm font-semibold mb-1">/mes</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">Para empezar sin riesgo</p>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-400 flex-1 mb-8">
+            <li class="flex items-center gap-2"><span class="check">✓</span> 5 facturas/mes</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> 2 clientes</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> 1 presupuesto/mes</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Dashboard básico</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> PDF con QR</li>
+            <li class="flex items-center gap-2 text-slate-600"><span class="cross">✗</span> Agente Cobros IA</li>
+            <li class="flex items-center gap-2 text-slate-600"><span class="cross">✗</span> Agente Impuestos IA</li>
+            <li class="flex items-center gap-2 text-slate-600"><span class="cross">✗</span> OCR tickets</li>
+            <li class="flex items-center gap-2 text-slate-600"><span class="cross">✗</span> Marca de agua en PDF</li>
+          </ul>
+          <a href="/app" class="glass text-center py-3 rounded-2xl font-black text-sm text-slate-300 hover:bg-white/10 transition-all">Empezar gratis</a>
+        </div>
+
+        <!-- Plan Autónomo — POPULAR -->
+        <div class="relative glass rounded-3xl p-6 flex flex-col card-hover border border-violet-500/40 shadow-2xl shadow-violet-500/20">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full whitespace-nowrap">
+            Más popular
+          </div>
+          <div class="mb-6 pt-2">
+            <p class="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-2">Plan Autónomo</p>
+            <div class="flex items-end gap-1">
+              <span id="price-autonomo" class="text-4xl font-black text-white">9,90€</span>
+              <span class="text-slate-500 text-sm font-semibold mb-1">/mes</span>
+            </div>
+            <p id="price-autonomo-note" class="text-xs text-violet-400 mt-1">7,90€/mes con pago anual</p>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-300 flex-1 mb-8">
+            <li class="flex items-center gap-2"><span class="check">✓</span> Facturas ilimitadas</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Clientes ilimitados</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Dashboard IA + alertas</li>
+            <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> <strong>Agente Cobros IA</strong></li>
+            <li class="flex items-center gap-2"><span class="text-amber-400">✓</span> <strong>Agente Impuestos IA</strong></li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Modelos 303 y 130</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> OCR tickets (IA)</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> PWA instalable</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Pre-VeriFactu</li>
+            <li class="flex items-center gap-2 text-slate-600"><span class="cross">✗</span> Informes CSV</li>
+          </ul>
+          <a href="/app" class="btn-primary text-center py-3.5 rounded-2xl font-black text-sm text-white shadow-lg shadow-violet-500/30">Empezar ahora</a>
+        </div>
+
+        <!-- Plan Profesional -->
+        <div class="glass rounded-3xl p-6 flex flex-col card-hover">
+          <div class="mb-6">
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Plan Profesional</p>
+            <div class="flex items-end gap-1">
+              <span id="price-pro" class="text-4xl font-black text-white">17,90€</span>
+              <span class="text-slate-500 text-sm font-semibold mb-1">/mes</span>
+            </div>
+            <p id="price-pro-note" class="text-xs text-slate-500 mt-1">14,90€/mes pago anual</p>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-400 flex-1 mb-8">
+            <li class="flex items-center gap-2"><span class="check">✓</span> Todo lo del plan Autónomo</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Informes exportables CSV</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Alertas IA personalizadas</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Soporte prioritario (24h)</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Logo en todas las facturas</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Personalización de colores</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Modelo 100 anual</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Modelo 390 anual</li>
+          </ul>
+          <a href="/app" class="glass text-center py-3 rounded-2xl font-black text-sm text-slate-300 hover:bg-white/10 transition-all">Elegir plan</a>
+        </div>
+
+        <!-- Plan Asesoría -->
+        <div class="glass rounded-3xl p-6 flex flex-col card-hover border border-white/10">
+          <div class="mb-6">
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Plan Asesoría</p>
+            <div class="flex items-end gap-1">
+              <span id="price-asesoria" class="text-4xl font-black text-white">39€</span>
+              <span class="text-slate-500 text-sm font-semibold mb-1">/mes</span>
+            </div>
+            <p id="price-asesoria-note" class="text-xs text-slate-500 mt-1">Para gestorías y asesores</p>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-400 flex-1 mb-8">
+            <li class="flex items-center gap-2"><span class="check">✓</span> Hasta 15 clientes gestionados</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Panel de administrador</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Exportación contable</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Soporte dedicado</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Agentes IA para todos los clientes</li>
+            <li class="flex items-center gap-2"><span class="check">✓</span> Informes consolidados</li>
+            <li class="flex items-center gap-2 text-violet-400"><span>✦</span> Marca blanca (próximamente)</li>
+          </ul>
+          <a href="contacto.html" class="glass text-center py-3 rounded-2xl font-black text-sm text-slate-300 hover:bg-white/10 transition-all">Contactar</a>
+        </div>
+      </div>
+
+      <!-- Kit Digital -->
+      <div class="mt-10 glass rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center gap-5 max-w-3xl mx-auto border border-green-500/20">
+        <div class="w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15 13.5V22l-3-1.5L9 22v-8.5"/></svg>
+        </div>
+        <div>
+          <p class="text-sm font-black text-white mb-1">¿Sabías que puedes financiarlo con el Kit Digital?</p>
+          <p class="text-xs text-slate-400 leading-relaxed">El programa gubernamental Kit Digital puede subvencionar hasta <strong class="text-green-400">2.000€</strong> de software para autónomos y pymes de 0 a 49 empleados. Faktio Pro es elegible como software de facturación electrónica y gestión empresarial.</p>
+          <a href="contacto.html" class="inline-flex items-center gap-1 text-green-400 hover:text-green-300 text-xs font-black mt-2 transition-colors">Solicitar información sobre Kit Digital →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TABLA COMPARATIVA -->
+  <section class="py-16 px-6 bg-gradient-to-b from-transparent via-slate-900/40 to-transparent">
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-2xl font-black tracking-tighter text-center mb-10">Comparación de planes</h2>
+      <div class="glass rounded-3xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-white/5">
+                <th class="text-left py-4 px-6 font-black text-slate-400">Función</th>
+                <th class="py-4 px-4 text-center font-black text-slate-400">Libre</th>
+                <th class="py-4 px-4 text-center font-black text-violet-400 bg-violet-500/5">Autónomo</th>
+                <th class="py-4 px-4 text-center font-black text-slate-400">Profesional</th>
+                <th class="py-4 px-4 text-center font-black text-slate-400">Asesoría</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-white/5 hover:bg-white/[0.02]"><td class="py-3 px-6 text-slate-400">Facturas</td><td class="py-3 px-4 text-center text-slate-500">5/mes</td><td class="py-3 px-4 text-center text-green-400 bg-violet-500/5 font-bold">Ilimitadas</td><td class="py-3 px-4 text-center text-green-400">Ilimitadas</td><td class="py-3 px-4 text-center text-green-400">Ilimitadas</td></tr>
+              <tr class="border-b border-white/5 hover:bg-white/[0.02]"><td class="py-3 px-6 text-slate-400">Presupuestos</td><td class="py-3 px-4 text-center text-slate-500">1/mes</td><td class="py-3 px-4 text-center text-green-400 bg-violet-500/5 font-bold">Ilimitados</td><td class="py-3 px-4 text-center text-green-400">Ilimitados</td><td class="py-3 px-4 text-center text-green-400">Ilimitados</td></tr>
+              <tr class="border-b border-white/5 hover:bg-white/[0.02]"><td class="py-3 px-6 text-slate-400">Clientes</td><td class="py-3 px-4 text-center text-slate-500">2</td><td class="py-3 px-4 text-center text-green-400 bg-violet-500/5 font-bold">Ilimitados</td><td class="py-3 px-4 text-center text-green-400">Ilimitados</td><td class="py-3 px-4 text-center text-green-400">Ilimitados</td></tr>
+              <tr class="border-b border-white/5 hover:bg-white/[0.02]"><td class="py-3 px-6 text-slate-400">Dashboard IA</td><td class="py-3 px-4 text-center text-slate-500">Básico</td><td class="py-3 px-4 text-center text-green-400 bg-violet-500/5">✓</td><td class="py-3 px-4 text-center text-green-400">✓</td><td class="py-3 px-4 text-center text-green-400">✓</td></tr>
+              <tr class="border-b border-white/5 hover:bg-white/[0.02]"><td class="py-3 px-6 text-slate-400">Agente Cobros IA</td><td class="py-3 px-4 text-center text-slate-600">—</td><td class="py-3 px-4 text-center text-blue-400 bg-violet-500/5 font-bold">✓</td><td class="py-3 px-4 text-center text-blue-400">✓</td><td class="py-3 px-4 text-center text-blue-400">✓</td></tr>
+              <tr class="border-b border-white/5 hover:bg-white/[0.02]"><td class="py-3 px-6 text-slate-400">Agente Impuestos IA</td><td class="py-3 px-4 text-center text-slate-600">—</td><td class="py-3 px-4 text-center text-amber-400 bg-violet-500/5 font-bold">✓</td><td class="py-3 px-4 text-center text-amber-400">✓</td><td class="py-3 px-4 text-center text-amber-400">✓</td></tr>
+              <tr class="border-b border-white/5 hover:bg-white/[0.02]"><td class="py-3 px-6 text-slate-400">OCR tickets (IA)</td><td class="py-3 px-4 text-center text-slate-600">—</td><td class="py-3 px-4 text-center text-green-400 bg-violet-500/5">✓</td><td class="py-3 px-4 text-center text-green-400">✓</td><td class="py-3 px-4 text-center text-green-400">✓</td></tr>
+              <tr class="border-b border-white/5 hover:bg-white/[0.02]"><td class="py-3 px-6 text-slate-400">PDF sin marca de agua</td><td class="py-3 px-4 text-center text-slate-600">—</td><td class="py-3 px-4 text-center text-green-400 bg-violet-500/5">✓</td><td class="py-3 px-4 text-center text-green-400">✓</td><td class="py-3 px-4 text-center text-green-400">✓</td></tr>
+              <tr class="border-b border-white/5 hover:bg-white/[0.02]"><td class="py-3 px-6 text-slate-400">Informes CSV</td><td class="py-3 px-4 text-center text-slate-600">—</td><td class="py-3 px-4 text-center text-slate-600 bg-violet-500/5">—</td><td class="py-3 px-4 text-center text-green-400">✓</td><td class="py-3 px-4 text-center text-green-400">✓</td></tr>
+              <tr class="hover:bg-white/[0.02]"><td class="py-3 px-6 text-slate-400">Panel multi-cliente</td><td class="py-3 px-4 text-center text-slate-600">—</td><td class="py-3 px-4 text-center text-slate-600 bg-violet-500/5">—</td><td class="py-3 px-4 text-center text-slate-600">—</td><td class="py-3 px-4 text-center text-green-400">✓</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ PRECIOS -->
+  <section class="py-20 px-6">
+    <div class="max-w-2xl mx-auto">
+      <h2 class="text-2xl font-black tracking-tighter text-center mb-10">Preguntas sobre precios</h2>
+      <div class="space-y-4">
+        <details class="glass rounded-2xl p-5 group">
+          <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Puedo cambiar de plan en cualquier momento? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Sí. Puedes subir o bajar de plan cuando quieras. El cambio se aplica al inicio del siguiente período de facturación. Si subes de plan, te cobraremos la diferencia prorrateada.</p>
+        </details>
+        <details class="glass rounded-2xl p-5 group">
+          <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Qué ocurre con mis datos si cancelo? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Tus datos se conservan durante 30 días tras la cancelación. Puedes exportarlos en cualquier momento en formato CSV o PDF. Después del período de gracia, los datos se eliminan de forma permanente conforme a la RGPD.</p>
+        </details>
+        <details class="glass rounded-2xl p-5 group">
+          <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Los precios incluyen IVA? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Sí, todos los precios mostrados incluyen el 21% de IVA. Recibirás una factura mensual deducible para tu negocio.</p>
+        </details>
+        <details class="glass rounded-2xl p-5 group">
+          <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Hay descuento para el plan anual? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Sí, el plan anual supone un ahorro de aproximadamente el 20% respecto al mensual. Se factura anualmente con una sola cargo. Plan Autónomo: 94,80€/año (7,90€/mes). Plan Profesional: 178,80€/año (14,90€/mes).</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="py-16 px-6 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-15" style="background:radial-gradient(ellipse at center, #7c3aed 0%, transparent 70%)"></div>
+    <div class="max-w-2xl mx-auto text-center relative z-10">
+      <h2 class="text-3xl font-black tracking-tighter mb-4">¿Aún tienes dudas?</h2>
+      <p class="text-slate-400 mb-8">Empieza con el plan gratuito y decide cuando estés listo. Sin tarjeta de crédito.</p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="/app" class="btn-primary font-black text-white px-8 py-4 rounded-2xl shadow-2xl shadow-violet-500/30 flex items-center justify-center gap-2">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          Empezar gratis ahora
+        </a>
+        <a href="contacto.html" class="glass font-bold text-white px-8 py-4 rounded-2xl hover:bg-white/10 transition-all">Hablar con ventas</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-white/5 py-10 px-6">
+    <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-slate-600">
+      <div class="flex items-center gap-2">
+        <img src="logo-512.png" alt="Faktio Pro" class="w-6 h-6 rounded-lg object-cover" />
+        <span class="font-black text-slate-500">Faktio<span class="text-violet-500">Pro</span></span>
+        <span>© 2026. Todos los derechos reservados.</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-5">
+        <a href="home.html" class="hover:text-white transition-colors">Inicio</a>
+        <a href="politicas.html" class="hover:text-white transition-colors">Privacidad</a>
+        <a href="politicas.html#terminos" class="hover:text-white transition-colors">Términos</a>
+        <a href="contacto.html" class="hover:text-white transition-colors">Contacto</a>
+        <a href="mailto:hola@faktiopro.com" class="hover:text-white transition-colors">hola@faktiopro.com</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const nav = document.querySelector('nav');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) nav.classList.add('py-2');
+      else nav.classList.remove('py-2');
+    });
+
+    const prices = {
+      mensual: { autonomo: '9,90€', autonomoNote: '7,90€/mes con pago anual', pro: '17,90€', proNote: '14,90€/mes pago anual', asesoria: '39€', asesoriaNote: 'Para gestorías y asesores' },
+      anual:   { autonomo: '7,90€', autonomoNote: 'Facturado anualmente — 94,80€/año', pro: '14,90€', proNote: 'Facturado anualmente — 178,80€/año', asesoria: '32€', asesoriaNote: 'Facturado anualmente — 384€/año' }
+    };
+
+    function setMode(mode) {
+      const p = prices[mode];
+      document.getElementById('price-autonomo').textContent = p.autonomo;
+      document.getElementById('price-autonomo-note').textContent = p.autonomoNote;
+      document.getElementById('price-pro').textContent = p.pro;
+      document.getElementById('price-pro-note').textContent = p.proNote;
+      document.getElementById('price-asesoria').textContent = p.asesoria;
+      document.getElementById('price-asesoria-note').textContent = p.asesoriaNote;
+      document.getElementById('btn-mensual').className = `px-5 py-2 rounded-xl text-sm font-black transition-all ${mode==='mensual' ? 'toggle-active' : 'toggle-inactive'}`;
+      document.getElementById('btn-anual').className = `px-5 py-2 rounded-xl text-sm font-black transition-all ${mode==='anual' ? 'toggle-active' : 'toggle-inactive'}`;
+      // update note text
+      document.getElementById('btn-anual').innerHTML = mode==='anual' ? 'Anual <span class="text-green-400 text-xs ml-1">−20%</span>' : 'Anual <span class="text-green-400 text-xs ml-1">−20%</span>';
+    }
+  </script>
+</body>
+</html>

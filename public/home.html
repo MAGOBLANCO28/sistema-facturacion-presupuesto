@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Faktio Pro — Facturación Inteligente para Autónomos y Pymes</title>
+  <meta name="description" content="Faktio Pro: el software de facturación con IA para autónomos y pymes españolas. Facturas, impuestos, VeriFactu y recordatorios automáticos. Desde 0€." />
+  <meta property="og:title" content="Faktio Pro — Facturación con Inteligencia Artificial" />
+  <meta property="og:description" content="Gestiona tus facturas, impuestos y cobros con IA. Cumple con VeriFactu. Desde 0€/mes." />
+  <meta property="og:image" content="logo-512.png" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="logo-512.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: { 50:'#f5f3ff', 100:'#ede9fe', 500:'#8b5cf6', 600:'#7c3aed', 700:'#6d28d9', 900:'#4c1d95' },
+          },
+          animation: {
+            'fade-up': 'fadeUp 0.6s ease-out forwards',
+            'pulse-slow': 'pulse 3s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeUp: { '0%': { opacity:'0', transform:'translateY(24px)' }, '100%': { opacity:'1', transform:'translateY(0)' } }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { scroll-behavior: smooth; }
+    .gradient-text { background: linear-gradient(135deg, #a78bfa 0%, #6366f1 50%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .glass { background: rgba(255,255,255,0.04); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 24px 48px rgba(139,92,246,0.15); }
+    .btn-primary { background: linear-gradient(135deg, #7c3aed, #4f46e5); transition: all 0.2s; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 32px rgba(124,58,237,0.4); }
+    .feature-icon { background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(99,102,241,0.1)); border: 1px solid rgba(139,92,246,0.2); }
+    .ticker { animation: ticker 30s linear infinite; }
+    @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+    .nav-link-active { color: white !important; }
+    details summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="bg-slate-950 text-white font-sans antialiased overflow-x-hidden">
+
+  <!-- NAV -->
+  <nav class="fixed top-0 left-0 right-0 z-50 glass" id="main-nav">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="home.html" class="flex items-center gap-3">
+        <img src="logo-512.png" alt="Faktio Pro" class="w-9 h-9 rounded-xl object-cover shadow-lg shadow-violet-500/40 ring-1 ring-violet-500/30" />
+        <span class="font-black text-lg tracking-tight">Faktio<span class="text-violet-400">Pro</span></span>
+      </a>
+      <div class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-400">
+        <a href="#features" class="hover:text-white transition-colors">Funciones</a>
+        <a href="precios.html" class="hover:text-white transition-colors">Precios</a>
+        <a href="#agents" class="hover:text-white transition-colors">Agentes IA</a>
+        <a href="contacto.html" class="hover:text-white transition-colors">Contacto</a>
+      </div>
+      <!-- Menú móvil -->
+      <button id="menu-btn" class="md:hidden p-2 text-slate-400 hover:text-white" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="flex items-center gap-3">
+        <a href="/app" class="hidden md:block text-sm font-bold text-slate-400 hover:text-white transition-colors px-4 py-2">Entrar</a>
+        <a href="precios.html" class="btn-primary text-sm font-black text-white px-5 py-2.5 rounded-xl shadow-lg">Empezar gratis</a>
+      </div>
+    </div>
+    <!-- Menú móvil desplegable -->
+    <div id="mobile-menu" class="hidden md:hidden border-t border-white/5 px-6 py-4 space-y-3">
+      <a href="#features" class="block text-sm font-semibold text-slate-400 hover:text-white py-1">Funciones</a>
+      <a href="precios.html" class="block text-sm font-semibold text-slate-400 hover:text-white py-1">Precios</a>
+      <a href="#agents" class="block text-sm font-semibold text-slate-400 hover:text-white py-1">Agentes IA</a>
+      <a href="contacto.html" class="block text-sm font-semibold text-slate-400 hover:text-white py-1">Contacto</a>
+      <a href="/app" class="block text-sm font-bold text-violet-400 hover:text-white py-1">Entrar a la app →</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="min-h-screen flex items-center justify-center relative pt-24 pb-16 px-6 overflow-hidden">
+    <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full opacity-10 animate-pulse-slow" style="background:radial-gradient(circle, #7c3aed, transparent 70%)"></div>
+    <div class="absolute top-1/3 right-1/4 w-96 h-96 rounded-full opacity-5" style="background:radial-gradient(circle, #3b82f6, transparent 70%)"></div>
+
+    <div class="max-w-5xl mx-auto text-center relative z-10">
+      <!-- Logo -->
+      <div class="flex justify-center mb-8">
+        <div class="relative">
+          <img src="logo-512.png" alt="Faktio Pro" class="w-28 h-28 rounded-3xl shadow-2xl shadow-violet-500/50 ring-2 ring-violet-500/30" />
+          <div class="absolute -inset-3 rounded-3xl opacity-30 blur-xl" style="background:radial-gradient(circle, #7c3aed, transparent 70%)"></div>
+        </div>
+      </div>
+
+      <!-- Badge -->
+      <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-8 text-xs font-bold text-violet-300 animate-pulse-slow">
+        <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+        Listo para VeriFactu · RD 1007/2023
+      </div>
+
+      <h1 class="text-5xl md:text-7xl font-black leading-none tracking-tighter mb-6">
+        Factura sin estrés.<br/>
+        <span class="gradient-text">Tu copiloto fiscal</span><br/>
+        con Inteligencia Artificial.
+      </h1>
+
+      <p class="text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+        Faktio Pro gestiona tus facturas, presupuestos, gastos e impuestos. Los agentes IA te avisan de cobros pendientes y vencimientos fiscales. Cumple con Hacienda sin esfuerzo.
+      </p>
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+        <a href="/app" class="btn-primary text-base font-black text-white px-8 py-4 rounded-2xl shadow-2xl shadow-violet-500/30 flex items-center gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          Crear cuenta gratis
+        </a>
+        <a href="precios.html" class="glass text-base font-bold text-white px-8 py-4 rounded-2xl hover:bg-white/10 transition-all">
+          Ver precios
+        </a>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="grid grid-cols-3 gap-6 max-w-2xl mx-auto glass rounded-3xl p-6">
+        <div class="text-center">
+          <p class="text-3xl font-black text-white">100%</p>
+          <p class="text-xs text-slate-500 font-semibold mt-1">Legal · VeriFactu</p>
+        </div>
+        <div class="text-center border-x border-white/10">
+          <p class="text-3xl font-black text-white">0€</p>
+          <p class="text-xs text-slate-500 font-semibold mt-1">Para empezar</p>
+        </div>
+        <div class="text-center">
+          <p class="text-3xl font-black text-white">2 IA</p>
+          <p class="text-xs text-slate-500 font-semibold mt-1">Agentes activos</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TICKER -->
+  <div class="border-y border-white/5 bg-white/[0.02] py-3 overflow-hidden">
+    <div class="flex ticker whitespace-nowrap gap-16 text-xs font-black text-slate-600 uppercase tracking-widest select-none">
+      <span>VeriFactu RD 1007/2023</span><span>·</span><span>Modelo 303 IVA</span><span>·</span>
+      <span>Modelo 130 IRPF</span><span>·</span><span>RGPD · LOPDGDD</span><span>·</span>
+      <span>Factura Electrónica</span><span>·</span><span>IA Gemini</span><span>·</span>
+      <span>Ley 11/2021 Antifraude</span><span>·</span><span>PWA Instalable</span><span>·</span>
+      <span>VeriFactu RD 1007/2023</span><span>·</span><span>Modelo 303 IVA</span><span>·</span>
+      <span>Modelo 130 IRPF</span><span>·</span><span>RGPD · LOPDGDD</span><span>·</span>
+      <span>Factura Electrónica</span><span>·</span><span>IA Gemini</span><span>·</span>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <section id="features" class="py-24 px-6">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <p class="text-xs font-black text-violet-400 uppercase tracking-widest mb-3">Todo lo que necesitas</p>
+        <h2 class="text-4xl md:text-5xl font-black tracking-tighter">Diseñado para autónomos<br/>y pymes españolas</h2>
+        <p class="text-slate-400 mt-4 max-w-xl mx-auto">Cada función pensada para ahorrarte tiempo, dinero y multas de Hacienda.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div class="glass rounded-3xl p-6 card-hover">
+          <div class="w-12 h-12 rounded-2xl feature-icon flex items-center justify-center mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          </div>
+          <h3 class="text-base font-black text-white mb-2">Facturación completa</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Facturas, presupuestos y abonos con numeración automática (FAC/PRE/ABO). IVA al 4%, 10% y 21%. IRPF automático para autónomos.</p>
+        </div>
+
+        <div class="glass rounded-3xl p-6 card-hover">
+          <div class="w-12 h-12 rounded-2xl feature-icon flex items-center justify-center mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          </div>
+          <h3 class="text-base font-black text-white mb-2">Dashboard fiscal IA</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Ve tu liquidez neta, IVA a declarar (M.303), IRPF retenido (M.130) y alertas inteligentes generadas por IA. Todo en tiempo real.</p>
+        </div>
+
+        <div class="glass rounded-3xl p-6 card-hover border border-blue-500/20">
+          <div class="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.22 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.13 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.09a16 16 0 0 0 6 6l.38-.38a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </div>
+          <div class="inline-flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 py-1 mb-3">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+            <span class="text-[10px] font-black text-blue-400 uppercase tracking-wider">Agente IA</span>
+          </div>
+          <h3 class="text-base font-black text-white mb-2">Recordatorio de cobros</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">El agente detecta facturas vencidas o próximas a vencer y envía recordatorios personalizados generados por IA a tus clientes.</p>
+        </div>
+
+        <div class="glass rounded-3xl p-6 card-hover border border-amber-500/20">
+          <div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1 mb-3">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+            <span class="text-[10px] font-black text-amber-400 uppercase tracking-wider">Agente IA</span>
+          </div>
+          <h3 class="text-base font-black text-white mb-2">Recordatorio de impuestos</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">15 días y 3 días antes de cada vencimiento fiscal (M.303, M.130, M.100, M.390) recibes un email con tus cifras estimadas.</p>
+        </div>
+
+        <div class="glass rounded-3xl p-6 card-hover border border-green-500/20">
+          <div class="w-12 h-12 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h3 class="text-base font-black text-white mb-2">Cumplimiento VeriFactu</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Facturas inalterables por ley (Ley 11/2021). QR de verificación. Numeración sin saltos. Preparado para AEAT. Multas de hasta 50.000€ evitadas.</p>
+        </div>
+
+        <div class="glass rounded-3xl p-6 card-hover">
+          <div class="w-12 h-12 rounded-2xl feature-icon flex items-center justify-center mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </div>
+          <h3 class="text-base font-black text-white mb-2">Gastos deducibles + OCR</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Escanea tus tickets con IA (OCR Gemini Vision) y extrae automáticamente importe, IVA, proveedor y categoría.</p>
+        </div>
+
+        <div class="glass rounded-3xl p-6 card-hover">
+          <div class="w-12 h-12 rounded-2xl feature-icon flex items-center justify-center mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          </div>
+          <h3 class="text-base font-black text-white mb-2">App instalable (PWA)</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Instala Faktio Pro en tu móvil o escritorio como app nativa. Sin tiendas de apps. Acceso instantáneo desde cualquier dispositivo.</p>
+        </div>
+
+        <div class="glass rounded-3xl p-6 card-hover">
+          <div class="w-12 h-12 rounded-2xl feature-icon flex items-center justify-center mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3 class="text-base font-black text-white mb-2">Seguridad máxima</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">JWT + PIN de 4 dígitos + frase semilla de 12 palabras. Multi-tenant aislado. Sesión cerrada a los 10 min de inactividad.</p>
+        </div>
+
+        <div class="glass rounded-3xl p-6 card-hover">
+          <div class="w-12 h-12 rounded-2xl feature-icon flex items-center justify-center mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <h3 class="text-base font-black text-white mb-2">PDF profesional + QR</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Genera PDFs con tu logo, colores corporativos y código QR de verificación fiscal. Todo en el navegador, sin servidor externo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGENTES IA -->
+  <section id="agents" class="py-24 px-6 bg-gradient-to-b from-transparent via-violet-950/20 to-transparent">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-16">
+        <p class="text-xs font-black text-violet-400 uppercase tracking-widest mb-3">Automatización inteligente</p>
+        <h2 class="text-4xl md:text-5xl font-black tracking-tighter mb-4">Dos agentes IA trabajando<br/><span class="gradient-text">por ti las 24h</span></h2>
+        <p class="text-slate-400 max-w-xl mx-auto">Sin que hagas nada, nuestros agentes vigilan tus cobros y tus obligaciones fiscales y te avisan cuando es necesario actuar.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass rounded-3xl p-8 border border-blue-500/20 card-hover">
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-14 h-14 rounded-2xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div>
+              <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Agente IA #1</div>
+              <h3 class="text-xl font-black text-white">Cobros automáticos</h3>
+            </div>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-400">
+            <li class="flex items-start gap-2"><span class="text-blue-400 mt-0.5">→</span> Detecta facturas vencidas o próximas a vencer</li>
+            <li class="flex items-start gap-2"><span class="text-blue-400 mt-0.5">→</span> Redacta un email personalizado con IA (Gemini)</li>
+            <li class="flex items-start gap-2"><span class="text-blue-400 mt-0.5">→</span> Lo envía al email del cliente automáticamente</li>
+            <li class="flex items-start gap-2"><span class="text-blue-400 mt-0.5">→</span> Configura los días de aviso previo (1–30 días)</li>
+            <li class="flex items-start gap-2"><span class="text-blue-400 mt-0.5">→</span> Se ejecuta cada día a las 9:00h (Madrid)</li>
+          </ul>
+        </div>
+
+        <div class="glass rounded-3xl p-8 border border-amber-500/20 card-hover">
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/20 flex items-center justify-center">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <div>
+              <div class="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1">Agente IA #2</div>
+              <h3 class="text-xl font-black text-white">Vencimientos fiscales</h3>
+            </div>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-400">
+            <li class="flex items-start gap-2"><span class="text-amber-400 mt-0.5">→</span> Vigila todos los plazos de la AEAT (M.303, M.130, M.100, M.390)</li>
+            <li class="flex items-start gap-2"><span class="text-amber-400 mt-0.5">→</span> Avisa 15 días y 3 días antes del vencimiento</li>
+            <li class="flex items-start gap-2"><span class="text-amber-400 mt-0.5">→</span> Incluye tu IVA neto y IRPF estimados del trimestre</li>
+            <li class="flex items-start gap-2"><span class="text-amber-400 mt-0.5">→</span> Email con pasos prácticos para presentar cada modelo</li>
+            <li class="flex items-start gap-2"><span class="text-amber-400 mt-0.5">→</span> Se ejecuta cada día a las 8:00h (Madrid)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING PREVIEW -->
+  <section class="py-24 px-6">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-16">
+        <p class="text-xs font-black text-violet-400 uppercase tracking-widest mb-3">Sin sorpresas</p>
+        <h2 class="text-4xl md:text-5xl font-black tracking-tighter mb-4">Precios claros.<br/><span class="gradient-text">Cancela cuando quieras.</span></h2>
+        <p class="text-slate-400">Todos los planes incluyen IVA. Sin permanencia.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 items-start mb-8">
+        <!-- Plan Libre -->
+        <div class="glass rounded-3xl p-6 flex flex-col card-hover">
+          <div class="mb-6">
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Plan Libre</p>
+            <div class="flex items-end gap-1">
+              <span class="text-4xl font-black text-white">0€</span>
+              <span class="text-slate-500 text-sm font-semibold mb-1">/mes</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">Para empezar sin riesgo</p>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-400 flex-1 mb-8">
+            <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 5 facturas/mes</li>
+            <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 2 clientes</li>
+            <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Dashboard básico</li>
+            <li class="flex items-center gap-2 text-slate-600"><span>✗</span> Sin agentes IA</li>
+          </ul>
+          <a href="/app" class="glass text-center py-3 rounded-2xl font-black text-sm text-slate-300 hover:bg-white/10 transition-all">Empezar gratis</a>
+        </div>
+
+        <!-- Plan Autónomo — POPULAR -->
+        <div class="relative glass rounded-3xl p-6 flex flex-col card-hover border border-violet-500/40 shadow-2xl shadow-violet-500/20">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full">
+            Más popular
+          </div>
+          <div class="mb-6 pt-2">
+            <p class="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-2">Plan Autónomo</p>
+            <div class="flex items-end gap-1">
+              <span class="text-4xl font-black text-white">9,90€</span>
+              <span class="text-slate-500 text-sm font-semibold mb-1">/mes</span>
+            </div>
+            <p class="text-xs text-violet-400 mt-1">7,90€/mes con pago anual</p>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-300 flex-1 mb-8">
+            <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Facturas ilimitadas</li>
+            <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Clientes ilimitados</li>
+            <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> <strong>Agente Cobros IA</strong></li>
+            <li class="flex items-center gap-2"><span class="text-amber-400">✓</span> <strong>Agente Impuestos IA</strong></li>
+            <li class="flex items-center gap-2"><span class="text-green-400">✓</span> OCR tickets (IA)</li>
+          </ul>
+          <a href="/app" class="btn-primary text-center py-3.5 rounded-2xl font-black text-sm text-white shadow-lg shadow-violet-500/30">Empezar ahora</a>
+        </div>
+
+        <!-- Plan Profesional -->
+        <div class="glass rounded-3xl p-6 flex flex-col card-hover">
+          <div class="mb-6">
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Plan Profesional</p>
+            <div class="flex items-end gap-1">
+              <span class="text-4xl font-black text-white">17,90€</span>
+              <span class="text-slate-500 text-sm font-semibold mb-1">/mes</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">14,90€/mes pago anual</p>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-400 flex-1 mb-8">
+            <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Todo lo del plan Autónomo</li>
+            <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Informes exportables CSV</li>
+            <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Alertas IA personalizadas</li>
+            <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Soporte prioritario</li>
+          </ul>
+          <a href="precios.html" class="glass text-center py-3 rounded-2xl font-black text-sm text-slate-300 hover:bg-white/10 transition-all">Ver detalles</a>
+        </div>
+      </div>
+
+      <div class="text-center">
+        <a href="precios.html" class="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 font-black text-sm transition-colors">
+          Ver comparación completa de planes
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOCIAL PROOF / TRUST -->
+  <section class="py-16 px-6 bg-gradient-to-b from-transparent via-slate-900/50 to-transparent">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-12">
+        <p class="text-xs font-black text-violet-400 uppercase tracking-widest mb-3">Por qué Faktio Pro</p>
+        <h2 class="text-3xl font-black tracking-tighter">Hecho para la fiscalidad española</h2>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="glass rounded-2xl p-5 text-center card-hover">
+          <div class="text-2xl font-black text-violet-400 mb-1">RGPD</div>
+          <p class="text-xs text-slate-500">Datos en servidores europeos</p>
+        </div>
+        <div class="glass rounded-2xl p-5 text-center card-hover">
+          <div class="text-2xl font-black text-green-400 mb-1">VeriFactu</div>
+          <p class="text-xs text-slate-500">Preparado RD 1007/2023</p>
+        </div>
+        <div class="glass rounded-2xl p-5 text-center card-hover">
+          <div class="text-2xl font-black text-blue-400 mb-1">24/7</div>
+          <p class="text-xs text-slate-500">Agentes IA siempre activos</p>
+        </div>
+        <div class="glass rounded-2xl p-5 text-center card-hover">
+          <div class="text-2xl font-black text-amber-400 mb-1">0€</div>
+          <p class="text-xs text-slate-500">Para empezar, sin tarjeta</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="py-24 px-6">
+    <div class="max-w-2xl mx-auto">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl md:text-4xl font-black tracking-tighter">Preguntas frecuentes</h2>
+      </div>
+      <div class="space-y-4">
+        <details class="glass rounded-2xl p-5 group">
+          <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Faktio Pro cumple con VeriFactu? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Sí. Faktio Pro implementa la inalterabilidad de facturas emitidas (exigencia de la Ley 11/2021), numeración correlativa sin huecos, y códigos QR de verificación. La integración completa con el sistema AEAT VeriFactu está en desarrollo activo para antes del plazo legal de julio 2027.</p>
+        </details>
+        <details class="glass rounded-2xl p-5 group">
+          <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Necesito instalar algo? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+          <p class="text-sm text-slate-400 mt-3 leading-relaxed">No. Faktio Pro funciona 100% en el navegador. Además, puedes instalarlo como app (PWA) en tu móvil o escritorio con un solo clic, sin pasar por ninguna tienda de aplicaciones.</p>
+        </details>
+        <details class="glass rounded-2xl p-5 group">
+          <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Cómo funcionan los agentes IA? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Los agentes se ejecutan automáticamente cada día. El agente de cobros revisa facturas vencidas y envía emails personalizados a tus clientes. El agente de impuestos calcula tus obligaciones fiscales del trimestre y te avisa con días de antelación. Todo se configura desde Ajustes → Alertas IA.</p>
+        </details>
+        <details class="glass rounded-2xl p-5 group">
+          <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Es seguro para mis datos fiscales? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Absolutamente. Todos los datos están encriptados (bcrypt + JWT). Cada usuario tiene su espacio completamente aislado (multi-tenant). Cumplimos RGPD y LOPDGDD. Puedes ejercer tus derechos ARCO escribiendo a <a href="mailto:privacidad@faktiopro.com" class="text-violet-400 hover:underline">privacidad@faktiopro.com</a>.</p>
+        </details>
+        <details class="glass rounded-2xl p-5 group">
+          <summary class="font-black text-sm cursor-pointer flex justify-between items-center text-white list-none">¿Puedo migrar desde otro programa? <span class="text-slate-500 group-open:rotate-180 transition-transform">▾</span></summary>
+          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Sí. Puedes exportar tus datos desde otros programas como CSV e importarlos. Si tienes dudas, <a href="contacto.html" class="text-violet-400 hover:underline">contacta con nuestro soporte</a> y te ayudamos con la migración.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Final -->
+  <section class="py-24 px-6 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-20" style="background:radial-gradient(ellipse at center, #7c3aed 0%, transparent 70%)"></div>
+    <div class="max-w-3xl mx-auto text-center relative z-10">
+      <h2 class="text-4xl md:text-5xl font-black tracking-tighter mb-6">
+        Empieza hoy.<br/>
+        <span class="gradient-text">Las primeras facturas son gratis.</span>
+      </h2>
+      <p class="text-slate-400 text-lg mb-10 max-w-xl mx-auto">
+        Únete a los autónomos españoles que ya gestionan su fiscalidad con inteligencia artificial.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="/app" class="btn-primary text-lg font-black text-white px-10 py-5 rounded-2xl shadow-2xl shadow-violet-500/30 flex items-center justify-center gap-3">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          Crear cuenta gratuita
+        </a>
+        <a href="contacto.html" class="glass text-lg font-bold text-white px-10 py-5 rounded-2xl hover:bg-white/10 transition-all">
+          Hablar con nosotros
+        </a>
+      </div>
+      <p class="text-xs text-slate-600 mt-8">Sin tarjeta de crédito · Cancela en cualquier momento · Datos en servidores europeos</p>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-white/5 py-12 px-6">
+    <div class="max-w-5xl mx-auto">
+      <div class="flex flex-col md:flex-row justify-between items-start gap-10 mb-10">
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <img src="logo-512.png" alt="Faktio Pro" class="w-8 h-8 rounded-xl object-cover shadow-md shadow-violet-500/30" />
+            <span class="font-black text-base">Faktio<span class="text-violet-400">Pro</span></span>
+          </div>
+          <p class="text-xs text-slate-600 max-w-xs leading-relaxed">El copiloto fiscal con IA para autónomos y pymes españolas. Cumple con Hacienda sin esfuerzo.</p>
+          <p class="text-xs text-slate-700 mt-3">© 2026 Faktio Pro. Todos los derechos reservados.</p>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-8 text-xs font-semibold">
+          <div class="space-y-3">
+            <p class="text-slate-500 uppercase tracking-widest font-black">Producto</p>
+            <a href="#features" class="block text-slate-500 hover:text-white transition-colors">Funciones</a>
+            <a href="precios.html" class="block text-slate-500 hover:text-white transition-colors">Precios</a>
+            <a href="#agents" class="block text-slate-500 hover:text-white transition-colors">Agentes IA</a>
+            <a href="#faq" class="block text-slate-500 hover:text-white transition-colors">FAQ</a>
+          </div>
+          <div class="space-y-3">
+            <p class="text-slate-500 uppercase tracking-widest font-black">Legal</p>
+            <a href="politicas.html" class="block text-slate-500 hover:text-white transition-colors">Privacidad</a>
+            <a href="politicas.html#terminos" class="block text-slate-500 hover:text-white transition-colors">Términos de uso</a>
+            <a href="politicas.html#cookies" class="block text-slate-500 hover:text-white transition-colors">Cookies</a>
+            <a href="mailto:privacidad@faktiopro.com" class="block text-slate-500 hover:text-white transition-colors">Derechos ARCO</a>
+          </div>
+          <div class="space-y-3">
+            <p class="text-slate-500 uppercase tracking-widest font-black">Empresa</p>
+            <a href="contacto.html" class="block text-slate-500 hover:text-white transition-colors">Contacto</a>
+            <a href="mailto:hola@faktiopro.com" class="block text-slate-500 hover:text-white transition-colors">hola@faktiopro.com</a>
+            <a href="/app" class="block text-slate-500 hover:text-white transition-colors">Acceder a la app</a>
+          </div>
+        </div>
+      </div>
+      <div class="border-t border-white/5 pt-6 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-600">
+        <div class="flex items-center gap-4">
+          <span>RGPD · LOPDGDD</span>
+          <span>·</span>
+          <span>Ley 11/2021 Antifraude</span>
+          <span>·</span>
+          <span>Pre-VeriFactu RD 1007/2023</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const nav = document.querySelector('nav');
+    window.addEventListener('scroll', () => {
+      nav.style.transition = 'padding 0.2s';
+      if (window.scrollY > 50) nav.classList.add('py-2');
+      else nav.classList.remove('py-2');
+    });
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      });
+    });
+  </script>
+</body>
+</html>
