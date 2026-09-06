@@ -48,6 +48,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [notifications, setNotifications] = useState<string[]>([]);
+  const [historyKey, setHistoryKey] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -148,7 +149,10 @@ export default function App() {
   const editorOnSave = () => {
     if (docType === 'quote') setView('budgets');
     else if (docType === 'abono') setView('abonos');
-    else setView('history');
+    else {
+      setHistoryKey(k => k + 1);
+      setView('history');
+    }
   };
 
   // Al volver desde preview, saber a qué sección ir
@@ -266,6 +270,7 @@ export default function App() {
             {view === 'history' && (
               <motion.div key="history" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <HistoryView
+                  key={historyKey}
                   onEdit={(doc) => { setSelectedDoc(doc); setDocType(doc.type); setView('editor'); }}
                   onPreview={(doc) => { setSelectedDoc(doc); setView('preview'); }}
                   onRectify={handleRectify}
