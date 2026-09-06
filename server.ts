@@ -722,13 +722,17 @@ async function startServer() {
   });
 
   app.post("/api/documents", authMiddleware, async (req: any, res) => {
-    const { type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id } = req.body;
-
-    const result = await pool.query(`
-      INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING id
-    `, [req.tenantId, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, JSON.stringify(items), subtotal, iva_rate, iva_amount, total, irpf_rate || 0, irpf_amount || 0, status || (type === 'invoice' ? 'Borrador' : 'Pendiente'), is_rectificative || false, original_invoice_id || null]);
-    res.json({ id: result.rows[0].id });
+    const { type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id, fecha_vencimiento, client_email } = req.body;
+    try {
+      const result = await pool.query(`
+        INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id, fecha_vencimiento, client_email)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING id
+      `, [req.tenantId, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, JSON.stringify(items), subtotal, iva_rate, iva_amount, total, irpf_rate || 0, irpf_amount || 0, status || (type === 'invoice' ? 'Borrador' : 'Pendiente'), is_rectificative || false, original_invoice_id || null, fecha_vencimiento || null, client_email || null]);
+      res.json({ id: result.rows[0].id });
+    } catch (err: any) {
+      console.error('Error al crear documento:', err);
+      res.status(500).json({ error: err.message || 'Error al guardar el documento' });
+    }
   });
 
   app.patch("/api/documents/:id/status", authMiddleware, async (req: any, res) => {

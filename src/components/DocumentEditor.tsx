@@ -283,6 +283,7 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
                     onChange={e => setFormData({ ...formData, fecha_vencimiento: e.target.value } as any)}
                     className="w-full px-5 py-3.5 bg-slate-800 border border-white/20 rounded-2xl outline-none text-sm font-bold focus:bg-slate-700 focus:ring-4 focus:ring-purple-500/20 transition-all [color-scheme:dark] text-white"
                     style={{ color: 'white' }}
+                    required
                   />
                 </div>
                 <InputGroup
