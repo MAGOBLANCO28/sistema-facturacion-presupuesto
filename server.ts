@@ -324,7 +324,7 @@ function getVencimientosFiscales() {
 
 // ── AGENTE IA: RECORDATORIO DE COBROS ────────────────
 async function ejecutarAgenteCobros() {
-  console.log('[AGENTE COBROS] 🤖 Iniciando revisión...');
+  console.log('[AGENTE COBROS] Iniciando revision...');
   try {
     const tenants = await pool.query(`
       SELECT t.id, s.company_name, s.notification_email, s.email,
@@ -334,13 +334,16 @@ async function ejecutarAgenteCobros() {
       WHERE (s.recordatorios_cobros IS NULL OR s.recordatorios_cobros = true)
     `);
 
+    console.log(`[AGENTE COBROS] Tenants encontrados: ${tenants.rows.length}`);
+
     for (const tenant of tenants.rows) {
       const destinatario = tenant.notification_email || tenant.email;
-      if (!destinatario) continue;
+      console.log(`[AGENTE COBROS] Tenant ${tenant.id} | email: ${destinatario || 'SIN EMAIL'} | recordatorios: ${tenant.recordatorios_cobros}`);
+      if (!destinatario) { console.log('[AGENTE COBROS] Saltando tenant sin email'); continue; }
 
       const diasAviso = tenant.dias_aviso_cobro ?? 3;
       const docs = await pool.query(`
-        SELECT * FROM documents
+        SELECT id, number, status, fecha_vencimiento, client_name, recordatorio_cobro_at FROM documents
         WHERE tenant_id = $1
           AND type = 'invoice'
           AND status = 'Emitida'
@@ -350,6 +353,15 @@ async function ejecutarAgenteCobros() {
         ORDER BY fecha_vencimiento ASC
         LIMIT 20
       `, [tenant.id]);
+
+      console.log(`[AGENTE COBROS] Facturas encontradas: ${docs.rows.length} (dias_aviso: ${diasAviso})`);
+      if (docs.rows.length === 0) {
+        const allDocs = await pool.query(
+          `SELECT number, status, fecha_vencimiento FROM documents WHERE tenant_id = $1 AND type = 'invoice' LIMIT 10`,
+          [tenant.id]
+        );
+        console.log('[AGENTE COBROS] Facturas en BD:', JSON.stringify(allDocs.rows));
+      }
 
       for (const doc of docs.rows) {
         const vencimiento = new Date(doc.fecha_vencimiento);
@@ -1149,6 +1161,15 @@ Reglas de cálculo:
   app.post("/api/reminders/trigger-impuestos", authMiddleware, async (_req, res) => {
     ejecutarAgenteImpuestos();
     res.json({ message: "Agente de impuestos iniciado en segundo plano" });
+  });
+
+  // Reset recordatorio_cobro_at para poder volver a testar sin esperar 3 días
+  app.post("/api/reminders/reset-cobros", authMiddleware, async (req: any, res) => {
+    await pool.query(
+      "UPDATE documents SET recordatorio_cobro_at = NULL WHERE tenant_id = $1",
+      [req.tenantId]
+    );
+    res.json({ message: "recordatorio_cobro_at reseteado para todas tus facturas" });
   });
 
   // ── FRONTEND ──────────────────────────────────────
