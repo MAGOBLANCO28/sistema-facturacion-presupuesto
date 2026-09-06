@@ -150,7 +150,7 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
                 {(doc as any).fecha_vencimiento && (
                   <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-200">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vencimiento</span>
-                    <span className="text-xs font-bold text-slate-700">{(doc as any).fecha_vencimiento}</span>
+                    <span className="text-xs font-bold text-slate-700">{String((doc as any).fecha_vencimiento).slice(0, 10)}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center">
