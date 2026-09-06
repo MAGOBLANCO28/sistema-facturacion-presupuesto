@@ -343,7 +343,7 @@ async function ejecutarAgenteCobros() {
 
       const diasAviso = tenant.dias_aviso_cobro ?? 3;
       const docs = await pool.query(`
-        SELECT id, number, status, fecha_vencimiento, client_name, recordatorio_cobro_at FROM documents
+        SELECT * FROM documents
         WHERE tenant_id = $1
           AND type = 'invoice'
           AND status = 'Emitida'
