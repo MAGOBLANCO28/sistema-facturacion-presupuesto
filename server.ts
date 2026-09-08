@@ -149,36 +149,20 @@ async function initDB() {
   console.log("✅ Base de datos lista");
 }
 
-// ── EMAIL UTILITY ─────────────────────────────────────
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER || '',
-      pass: process.env.SMTP_PASS || '',
-    },
-  } as any);
-}
-
+// ── EMAIL UTILITY (via n8n webhook) ───────────────────
 async function enviarEmail(to: string, subject: string, html: string): Promise<boolean> {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log(`[EMAIL] SMTP no configurado — destinatario: ${to} | asunto: ${subject}`);
-    return false;
-  }
+  const n8nUrl = process.env.N8N_WEBHOOK_URL || 'https://automation.magoblancodigital.link/webhook/faktio-email';
   try {
-    const transporter = createTransporter();
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to,
-      subject,
-      html,
+    const response = await fetch(n8nUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, html }),
     });
-    console.log(`[EMAIL] ✅ Enviado a ${to}: ${subject}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    console.log(`[EMAIL] ✅ Enviado via n8n a ${to}: ${subject}`);
     return true;
   } catch (err) {
-    console.error(`[EMAIL] ❌ Error enviando a ${to}:`, err);
+    console.error(`[EMAIL] ❌ Error enviando via n8n a ${to}:`, err);
     return false;
   }
 }
