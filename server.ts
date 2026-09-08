@@ -174,10 +174,15 @@ async function generarEmailCobro(
   invoiceNumber: string,
   total: number,
   diasDiff: number,
-  fechaVencimientoStr: string
+  fechaVencimientoStr: string,
+  companyPhone?: string,
+  companyEmail?: string
 ): Promise<{ subject: string; html: string }> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   const estado = diasDiff > 0 ? `vencida hace ${diasDiff} días` : diasDiff === 0 ? 'vence HOY' : `vence en ${Math.abs(diasDiff)} días`;
+  const contactoInfo = companyPhone || companyEmail
+    ? `- Contacto de la empresa: ${[companyPhone, companyEmail].filter(Boolean).join(' | ')}`
+    : '- Contacto: el cliente puede responder a este correo';
   const prompt = `Eres el sistema de cobros de una empresa. Genera un email profesional y cordial de recordatorio de pago en español.
 
 Datos:
@@ -186,11 +191,13 @@ Datos:
 - Número de factura: ${invoiceNumber}
 - Importe total: ${total.toFixed(2)} €
 - Fecha de vencimiento: ${fechaVencimientoStr} (${estado})
+${contactoInfo}
 
 Instrucciones:
 - Si la factura está vencida: tono firme pero respetuoso
 - Si vence pronto: tono amable y preventivo
-- Incluir número de factura, importe, y pasos para contactar
+- Incluir número de factura e importe
+- Para contactar, usar SOLO los datos de contacto proporcionados arriba. NO inventar teléfonos, webs ni emails
 - HTML con estilos inline, sin DOCTYPE/html/body, solo contenido interior
 
 Responde ÚNICAMENTE con JSON válido sin markdown:
@@ -311,7 +318,7 @@ async function ejecutarAgenteCobros() {
   console.log('[AGENTE COBROS] Iniciando revision...');
   try {
     const tenants = await pool.query(`
-      SELECT t.id, s.company_name, s.notification_email, s.email,
+      SELECT t.id, s.company_name, s.notification_email, s.email, s.phone,
              s.recordatorios_cobros, s.dias_aviso_cobro
       FROM tenants t
       JOIN settings s ON t.id = s.tenant_id
@@ -360,7 +367,9 @@ async function ejecutarAgenteCobros() {
           doc.number,
           doc.total,
           diasDiff,
-          fechaStr
+          fechaStr,
+          tenant.phone || undefined,
+          tenant.email || undefined
         );
 
         const emailDestino = doc.client_email || destinatario;
