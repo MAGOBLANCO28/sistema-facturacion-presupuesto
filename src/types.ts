@@ -60,6 +60,7 @@ export interface CompanySettings {
   city: string;
   province: string;
   zip: string;
+  website?: string;
   logo_url?: string;
   account_type?: 'autonomo' | 'sl';
   irpf_rate?: number;

@@ -144,6 +144,7 @@ async function initDB() {
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS recordatorios_cobros BOOLEAN DEFAULT true;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS recordatorios_impuestos BOOLEAN DEFAULT true;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS dias_aviso_cobro INTEGER DEFAULT 3;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS website TEXT;
   `);
 
   console.log("✅ Base de datos lista");
@@ -176,12 +177,14 @@ async function generarEmailCobro(
   diasDiff: number,
   fechaVencimientoStr: string,
   companyPhone?: string,
-  companyEmail?: string
+  companyEmail?: string,
+  companyWebsite?: string
 ): Promise<{ subject: string; html: string }> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   const estado = diasDiff > 0 ? `vencida hace ${diasDiff} días` : diasDiff === 0 ? 'vence HOY' : `vence en ${Math.abs(diasDiff)} días`;
-  const contactoInfo = companyPhone || companyEmail
-    ? `- Contacto de la empresa: ${[companyPhone, companyEmail].filter(Boolean).join(' | ')}`
+  const contactParts = [companyPhone, companyEmail, companyWebsite].filter(Boolean);
+  const contactoInfo = contactParts.length > 0
+    ? `- Datos de contacto de la empresa: ${contactParts.join(' | ')}`
     : '- Contacto: el cliente puede responder a este correo';
   const prompt = `Eres el sistema de cobros de una empresa. Genera un email profesional y cordial de recordatorio de pago en español.
 
@@ -234,15 +237,17 @@ async function generarEmailImpuesto(
   modeloNombre: string,
   diasRestantes: number,
   fechaVencimientoStr: string,
+  accountType: 'autonomo' | 'sl' = 'autonomo',
   ivaNeto?: number,
   irpfTotal?: number
 ): Promise<{ subject: string; html: string }> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   const urgencia = diasRestantes <= 3 ? 'MUY URGENTE' : diasRestantes <= 7 ? 'URGENTE' : 'AVISO PREVENTIVO';
-  const prompt = `Eres el asistente fiscal de Faktio. Genera un email de alerta fiscal en español para un autónomo.
+  const tipoEntidad = accountType === 'sl' ? 'Sociedad Limitada' : 'autónomo/a';
+  const prompt = `Eres el asistente fiscal de Faktio. Genera un email de alerta fiscal en español para una ${tipoEntidad}.
 
 Datos:
-- Empresa/Autónomo: ${companyName}
+- Empresa: ${companyName} (${tipoEntidad})
 - Modelo fiscal a presentar: ${modeloNombre}
 - Fecha límite: ${fechaVencimientoStr}
 - Días restantes: ${diasRestantes} (${urgencia})
@@ -251,7 +256,7 @@ ${irpfTotal !== undefined ? `- IRPF retenido acumulado (Modelo 130): ${irpfTotal
 
 El email debe:
 1. Alertar sobre el vencimiento con urgencia proporcional a los días restantes
-2. Explicar qué modelo presentar y ante qué organismo (AEAT)
+2. Explicar qué modelo presentar y ante qué organismo (AEAT) y qué implica para este tipo de empresa
 3. Listar 3-4 pasos prácticos para preparar la presentación
 4. Si hay importes, mencionar las cifras estimadas
 
@@ -292,17 +297,47 @@ Responde ÚNICAMENTE con JSON válido sin markdown:
 }
 
 // ── VENCIMIENTOS FISCALES ESPAÑOLES ──────────────────
-function getVencimientosFiscales() {
+function getVencimientosFiscales(accountType: 'autonomo' | 'sl' = 'autonomo') {
   const hoy = new Date();
   const year = hoy.getFullYear();
-  const deadlines = [
-    { nombre: 'Modelo 303 + 130 (Q1: ene–mar)', fecha: new Date(`${year}-04-20`), trimestre: 'Q1', modelos: ['303', '130'] },
-    { nombre: 'Modelo 303 + 130 (Q2: abr–jun)', fecha: new Date(`${year}-07-20`), trimestre: 'Q2', modelos: ['303', '130'] },
-    { nombre: 'Modelo 303 + 130 (Q3: jul–sep)', fecha: new Date(`${year}-10-20`), trimestre: 'Q3', modelos: ['303', '130'] },
-    { nombre: 'Modelo 303 + 130 (Q4: oct–dic)', fecha: new Date(`${year + 1}-01-30`), trimestre: 'Q4', modelos: ['303', '130'] },
-    { nombre: 'Modelo 100 (Renta anual)', fecha: new Date(`${year}-06-30`), trimestre: 'Anual', modelos: ['100'] },
-    { nombre: 'Modelo 390 (IVA anual)', fecha: new Date(`${year + 1}-01-30`), trimestre: 'Anual', modelos: ['390'] },
+
+  // Returns next upcoming occurrence of a given month/day (advances to next year if past)
+  const proxima = (month: number, day: number): Date => {
+    const d = new Date(year, month - 1, day);
+    return d >= hoy ? d : new Date(year + 1, month - 1, day);
+  };
+
+  // Modelo 303 (IVA trimestral) — obligatorio para todos
+  const q303 = [
+    { nombre: 'Modelo 303 — IVA Trimestral (Q1: ene–mar)', fecha: proxima(4, 20), trimestre: 'Q1' },
+    { nombre: 'Modelo 303 — IVA Trimestral (Q2: abr–jun)', fecha: proxima(7, 20), trimestre: 'Q2' },
+    { nombre: 'Modelo 303 — IVA Trimestral (Q3: jul–sep)', fecha: proxima(10, 20), trimestre: 'Q3' },
+    { nombre: 'Modelo 303 — IVA Trimestral (Q4: oct–dic)', fecha: proxima(1, 30), trimestre: 'Q4' },
   ];
+
+  // Modelos exclusivos de autónomos (estimación directa)
+  const autonomoModels = [
+    ...q303,
+    { nombre: 'Modelo 130 — IRPF Trimestral (Q1: ene–mar)', fecha: proxima(4, 20), trimestre: 'Q1' },
+    { nombre: 'Modelo 130 — IRPF Trimestral (Q2: abr–jun)', fecha: proxima(7, 20), trimestre: 'Q2' },
+    { nombre: 'Modelo 130 — IRPF Trimestral (Q3: jul–sep)', fecha: proxima(10, 20), trimestre: 'Q3' },
+    { nombre: 'Modelo 130 — IRPF Trimestral (Q4: oct–dic)', fecha: proxima(1, 30), trimestre: 'Q4' },
+    { nombre: 'Modelo 100 — Declaración de la Renta (IRPF anual)', fecha: proxima(6, 30), trimestre: 'Anual' },
+    { nombre: 'Modelo 390 — Resumen anual de IVA', fecha: proxima(1, 30), trimestre: 'Anual' },
+  ];
+
+  // Modelos exclusivos de Sociedades Limitadas / S.A.
+  const slModels = [
+    ...q303,
+    { nombre: 'Modelo 202 — IS 1er pago fraccionado (abr)', fecha: proxima(4, 20), trimestre: 'IS-P1' },
+    { nombre: 'Modelo 202 — IS 2º pago fraccionado (oct)', fecha: proxima(10, 20), trimestre: 'IS-P2' },
+    { nombre: 'Modelo 202 — IS 3er pago fraccionado (dic)', fecha: proxima(12, 20), trimestre: 'IS-P3' },
+    { nombre: 'Modelo 200 — Impuesto sobre Sociedades (anual)', fecha: proxima(7, 25), trimestre: 'Anual' },
+    { nombre: 'Modelo 390 — Resumen anual de IVA', fecha: proxima(1, 30), trimestre: 'Anual' },
+  ];
+
+  const deadlines = accountType === 'sl' ? slModels : autonomoModels;
+
   return deadlines
     .filter(d => d.fecha >= hoy)
     .map(d => ({
@@ -318,7 +353,7 @@ async function ejecutarAgenteCobros() {
   console.log('[AGENTE COBROS] Iniciando revision...');
   try {
     const tenants = await pool.query(`
-      SELECT t.id, s.company_name, s.notification_email, s.email, s.phone,
+      SELECT t.id, s.company_name, s.notification_email, s.email, s.phone, s.website,
              s.recordatorios_cobros, s.dias_aviso_cobro
       FROM tenants t
       JOIN settings s ON t.id = s.tenant_id
@@ -369,7 +404,8 @@ async function ejecutarAgenteCobros() {
           diasDiff,
           fechaStr,
           tenant.phone || undefined,
-          tenant.email || undefined
+          tenant.email || undefined,
+          tenant.website || undefined
         );
 
         const emailDestino = doc.client_email || destinatario;
@@ -391,13 +427,6 @@ async function ejecutarAgenteCobros() {
 async function ejecutarAgenteImpuestos() {
   console.log('[AGENTE IMPUESTOS] 🤖 Iniciando revisión...');
   try {
-    const vencimientos = getVencimientosFiscales();
-    const proximos = vencimientos.filter(v => v.diasRestantes <= 15);
-    if (proximos.length === 0) {
-      console.log('[AGENTE IMPUESTOS] Sin vencimientos próximos (< 15 días).');
-      return;
-    }
-
     const tenants = await pool.query(`
       SELECT t.id, s.company_name, s.notification_email, s.email,
              s.recordatorios_impuestos, s.account_type, s.irpf_rate
@@ -409,6 +438,11 @@ async function ejecutarAgenteImpuestos() {
     for (const tenant of tenants.rows) {
       const destinatario = tenant.notification_email || tenant.email;
       if (!destinatario) continue;
+
+      const accountType: 'autonomo' | 'sl' = tenant.account_type === 'sl' ? 'sl' : 'autonomo';
+      const vencimientos = getVencimientosFiscales(accountType);
+      const proximos = vencimientos.filter(v => v.diasRestantes <= 15);
+      if (proximos.length === 0) continue;
 
       // Obtener datos fiscales del trimestre para contextualizar el email
       let ivaNeto: number | undefined;
@@ -429,7 +463,7 @@ async function ejecutarAgenteImpuestos() {
             AND date >= date_trunc('quarter', CURRENT_DATE)::text
         `, [tenant.id]);
         ivaNeto = parseFloat(report.rows[0].iva_repercutido) - parseFloat(expReport.rows[0].iva_soportado);
-        irpfTotal = parseFloat(report.rows[0].irpf_retenido);
+        irpfTotal = accountType === 'autonomo' ? parseFloat(report.rows[0].irpf_retenido) : undefined;
       } catch {}
 
       for (const v of proximos) {
@@ -438,11 +472,12 @@ async function ejecutarAgenteImpuestos() {
           v.nombre,
           v.diasRestantes,
           new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(v.fecha)),
+          accountType,
           ivaNeto,
-          tenant.account_type === 'autonomo' ? irpfTotal : undefined
+          irpfTotal
         );
         await enviarEmail(destinatario, subject, html);
-        console.log(`[AGENTE IMPUESTOS] 📧 Aviso enviado — ${v.nombre} — ${tenant.company_name}`);
+        console.log(`[AGENTE IMPUESTOS] 📧 Aviso enviado — ${v.nombre} — ${tenant.company_name} (${accountType})`);
       }
     }
     console.log('[AGENTE IMPUESTOS] ✅ Revisión completada.');
@@ -641,21 +676,23 @@ async function startServer() {
 
   app.post("/api/settings", authMiddleware, async (req: any, res) => {
     const { company_name, owner_name, cif, phone, email, address, city, province, zip, account_type, irpf_rate,
-            notification_email, recordatorios_cobros, recordatorios_impuestos, dias_aviso_cobro } = req.body;
+            notification_email, recordatorios_cobros, recordatorios_impuestos, dias_aviso_cobro, website } = req.body;
     await pool.query(`
       UPDATE settings SET
         company_name=$1, owner_name=$2, cif=$3, phone=$4,
         email=$5, address=$6, city=$7, province=$8,
         zip=$9, account_type=$10, irpf_rate=$11,
         notification_email=$12, recordatorios_cobros=$13,
-        recordatorios_impuestos=$14, dias_aviso_cobro=$15
-      WHERE tenant_id=$16
+        recordatorios_impuestos=$14, dias_aviso_cobro=$15,
+        website=$16
+      WHERE tenant_id=$17
     `, [company_name, owner_name, cif, phone, email, address, city, province, zip,
         account_type || 'autonomo', irpf_rate || 15,
         notification_email || null,
         recordatorios_cobros !== undefined ? recordatorios_cobros : true,
         recordatorios_impuestos !== undefined ? recordatorios_impuestos : true,
         dias_aviso_cobro || 3,
+        website || null,
         req.tenantId]);
     res.json({ success: true });
   });
@@ -1141,8 +1178,10 @@ Reglas de cálculo:
   });
 
   // ── VENCIMIENTOS FISCALES ─────────────────────────
-  app.get("/api/tax-deadlines", authMiddleware, (_req, res) => {
-    res.json(getVencimientosFiscales());
+  app.get("/api/tax-deadlines", authMiddleware, async (req: any, res) => {
+    const s = await pool.query("SELECT account_type FROM settings WHERE tenant_id = $1", [req.tenantId]);
+    const accountType: 'autonomo' | 'sl' = s.rows[0]?.account_type === 'sl' ? 'sl' : 'autonomo';
+    res.json(getVencimientosFiscales(accountType));
   });
 
   // ── TRIGGERS MANUALES (TEST/ADMIN) ────────────────

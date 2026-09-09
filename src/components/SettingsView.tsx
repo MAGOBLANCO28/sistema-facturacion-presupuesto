@@ -202,6 +202,7 @@ export default function SettingsView({ settings, onUpdate }: Props) {
                  <InputField label="Responsable" value={formData.owner_name} onChange={e => setFormData({...formData, owner_name: e.target.value})} placeholder="Nombre Completo" />
                  <InputField label="Email Fiscal" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="admin@factio.es" />
                  <InputField label="Teléfono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+34 ..." />
+                 <InputField label="Página Web" value={(formData as any).website || ''} onChange={e => setFormData({...formData, website: e.target.value} as any)} placeholder="https://www.tuempresa.com" />
                  <InputField label="Ciudad" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} placeholder="Madrid" />
                  <InputField label="Dirección Postal" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Calle Falsa 123" />
                  <div className="grid grid-cols-2 gap-3">
@@ -419,11 +420,20 @@ export default function SettingsView({ settings, onUpdate }: Props) {
                 </label>
               </div>
               <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
-                <p className="text-[9px] text-amber-400/80 leading-relaxed">
-                  📅 <strong>Modelos 303 y 130:</strong> Avisos en abril, julio, octubre y enero<br />
-                  📋 <strong>Modelo 100 (Renta):</strong> Aviso en junio<br />
-                  📊 <strong>Modelo 390 (IVA anual):</strong> Aviso en enero
-                </p>
+                {(formData as any).account_type === 'sl' ? (
+                  <p className="text-[9px] text-amber-400/80 leading-relaxed">
+                    📅 <strong>Modelo 303 (IVA trimestral):</strong> Avisos en abril, julio, octubre y enero<br />
+                    🏢 <strong>Modelo 202 (IS pagos fraccionados):</strong> Avisos en abril, octubre y diciembre<br />
+                    📋 <strong>Modelo 200 (Impuesto Sociedades anual):</strong> Aviso en julio<br />
+                    📊 <strong>Modelo 390 (IVA anual):</strong> Aviso en enero
+                  </p>
+                ) : (
+                  <p className="text-[9px] text-amber-400/80 leading-relaxed">
+                    📅 <strong>Modelos 303 + 130 (IVA e IRPF trimestral):</strong> Avisos en abril, julio, octubre y enero<br />
+                    📋 <strong>Modelo 100 (Renta / IRPF anual):</strong> Aviso en junio<br />
+                    📊 <strong>Modelo 390 (IVA anual):</strong> Aviso en enero
+                  </p>
+                )}
               </div>
             </Card>
 
