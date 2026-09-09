@@ -466,18 +466,28 @@ async function ejecutarAgenteImpuestos(diasAviso = 15) {
         irpfTotal = accountType === 'autonomo' ? parseFloat(report.rows[0].irpf_retenido) : undefined;
       } catch {}
 
+      // Agrupar modelos por fecha de vencimiento → un solo email por día
+      const porFecha = new Map<string, typeof proximos>();
       for (const v of proximos) {
+        if (!porFecha.has(v.fecha)) porFecha.set(v.fecha, []);
+        porFecha.get(v.fecha)!.push(v);
+      }
+
+      for (const [fecha, modelos] of porFecha) {
+        const fechaStr = new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(fecha));
+        const nombresModelos = modelos.map(m => m.nombre).join(' + ');
+        const diasRestantes = modelos[0].diasRestantes;
         const { subject, html } = await generarEmailImpuesto(
           tenant.company_name || 'Tu empresa',
-          v.nombre,
-          v.diasRestantes,
-          new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(v.fecha)),
+          nombresModelos,
+          diasRestantes,
+          fechaStr,
           accountType,
           ivaNeto,
           irpfTotal
         );
         await enviarEmail(destinatario, subject, html);
-        console.log(`[AGENTE IMPUESTOS] 📧 Aviso enviado — ${v.nombre} — ${tenant.company_name} (${accountType})`);
+        console.log(`[AGENTE IMPUESTOS] 📧 Aviso enviado — ${nombresModelos} — ${tenant.company_name} (${accountType})`);
       }
     }
     console.log('[AGENTE IMPUESTOS] ✅ Revisión completada.');
