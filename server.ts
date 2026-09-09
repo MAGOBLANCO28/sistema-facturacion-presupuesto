@@ -1228,6 +1228,15 @@ Reglas de cálculo:
     res.json({ message: `Tenant ${targetId} eliminado correctamente` });
   });
 
+  // Elimina TODAS las cuentas excepto la del usuario autenticado (limpieza de cuentas demo/test)
+  app.delete("/api/admin/cleanup-others", authMiddleware, async (req: any, res) => {
+    const result = await pool.query(
+      "DELETE FROM tenants WHERE id != $1 RETURNING id, email",
+      [req.tenantId]
+    );
+    res.json({ eliminados: result.rows, mensaje: `${result.rowCount} cuenta(s) eliminada(s)` });
+  });
+
   // Reset recordatorio_cobro_at para poder volver a testar sin esperar 3 días
   app.post("/api/reminders/reset-cobros", authMiddleware, async (req: any, res) => {
     await pool.query(
