@@ -424,8 +424,8 @@ async function ejecutarAgenteCobros() {
 }
 
 // ── AGENTE IA: RECORDATORIO DE IMPUESTOS ─────────────
-async function ejecutarAgenteImpuestos() {
-  console.log('[AGENTE IMPUESTOS] 🤖 Iniciando revisión...');
+async function ejecutarAgenteImpuestos(diasAviso = 15) {
+  console.log(`[AGENTE IMPUESTOS] 🤖 Iniciando revisión (ventana: ${diasAviso} días)...`);
   try {
     const tenants = await pool.query(`
       SELECT t.id, s.company_name, s.notification_email, s.email,
@@ -441,7 +441,7 @@ async function ejecutarAgenteImpuestos() {
 
       const accountType: 'autonomo' | 'sl' = tenant.account_type === 'sl' ? 'sl' : 'autonomo';
       const vencimientos = getVencimientosFiscales(accountType);
-      const proximos = vencimientos.filter(v => v.diasRestantes <= 15);
+      const proximos = vencimientos.filter(v => v.diasRestantes <= diasAviso);
       if (proximos.length === 0) continue;
 
       // Obtener datos fiscales del trimestre para contextualizar el email
@@ -1191,7 +1191,7 @@ Reglas de cálculo:
   });
 
   app.post("/api/reminders/trigger-impuestos", authMiddleware, async (_req, res) => {
-    ejecutarAgenteImpuestos();
+    ejecutarAgenteImpuestos(60); // ventana ampliada para pruebas manuales
     res.json({ message: "Agente de impuestos iniciado en segundo plano" });
   });
 
