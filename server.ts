@@ -1205,6 +1205,29 @@ Reglas de cálculo:
     res.json({ message: "Agente de impuestos iniciado en segundo plano" });
   });
 
+  // ── ADMIN: GESTIÓN DE CUENTAS ────────────────────────
+  // Lista todos los tenants registrados (para detectar cuentas huérfanas/demo)
+  app.get("/api/admin/tenants", authMiddleware, async (_req, res) => {
+    const result = await pool.query(`
+      SELECT t.id, t.email AS login_email, s.company_name, s.email AS fiscal_email,
+             s.notification_email, t.created_at
+      FROM tenants t
+      LEFT JOIN settings s ON t.id = s.tenant_id
+      ORDER BY t.id
+    `);
+    res.json(result.rows);
+  });
+
+  // Elimina un tenant por ID (no puede ser el propio)
+  app.delete("/api/admin/tenant/:id", authMiddleware, async (req: any, res) => {
+    const targetId = parseInt(req.params.id);
+    if (targetId === req.tenantId) {
+      return res.status(400).json({ error: "No puedes eliminar tu propia cuenta desde este endpoint" });
+    }
+    await pool.query("DELETE FROM tenants WHERE id = $1", [targetId]);
+    res.json({ message: `Tenant ${targetId} eliminado correctamente` });
+  });
+
   // Reset recordatorio_cobro_at para poder volver a testar sin esperar 3 días
   app.post("/api/reminders/reset-cobros", authMiddleware, async (req: any, res) => {
     await pool.query(
