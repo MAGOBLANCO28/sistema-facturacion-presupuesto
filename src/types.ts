@@ -50,6 +50,20 @@ export interface Expense {
   ticket_image_url?: string;
 }
 
+export interface Client {
+  id?: number;
+  name: string;
+  nif?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  zip?: string;
+  notes?: string;
+  created_at?: string;
+}
+
 export interface CompanySettings {
   company_name: string;
   owner_name: string;

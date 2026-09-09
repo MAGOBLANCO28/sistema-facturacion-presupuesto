@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'motion/react';
-import { Plus, Trash2, Save, FileText, Calendar as CalendarIcon, Hash, User, CheckCircle2 } from 'lucide-react';
-import { DocumentType, DocumentData, DocumentItem, CompanySettings } from '../types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Plus, Trash2, Save, FileText, Calendar as CalendarIcon, Hash, User, CheckCircle2, Search, UserPlus } from 'lucide-react';
+import { DocumentType, DocumentData, DocumentItem, CompanySettings, Client } from '../types';
 
 const formatEuro = (amount: number) => {
   return new Intl.NumberFormat('es-ES', {
@@ -48,7 +48,77 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
   const [loading, setLoading] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const pendingSaveStatus = useRef<string | undefined>(undefined);
+
+  // Client autocomplete
+  const [clientQuery, setClientQuery] = useState('');
+  const [clientSuggestions, setClientSuggestions] = useState<Client[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedFromDB, setSelectedFromDB] = useState(false);
+  const clientSearchRef = useRef<HTMLDivElement>(null);
+
+  const searchClients = useCallback(async (q: string) => {
+    if (q.length < 2) { setClientSuggestions([]); return; }
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`/api/clients?search=${encodeURIComponent(q)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setClientSuggestions(Array.isArray(data) ? data : []);
+    } catch { setClientSuggestions([]); }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => searchClients(clientQuery), 250);
+    return () => clearTimeout(t);
+  }, [clientQuery, searchClients]);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (clientSearchRef.current && !clientSearchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const selectClient = (client: Client) => {
+    setFormData(prev => ({
+      ...prev,
+      client_name: client.name,
+      client_dni: client.nif || '',
+      client_address: client.address || '',
+      client_city: client.city || '',
+      client_zip: client.zip || '',
+      client_province: client.province || '',
+      client_email: client.email || '',
+    } as any));
+    setClientQuery(client.name);
+    setSelectedFromDB(true);
+    setShowSuggestions(false);
+    setValidationErrors({});
+  };
+
+  const saveClientToDB = async () => {
+    const token = localStorage.getItem('token');
+    await fetch('/api/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: formData.client_name,
+        nif: formData.client_dni,
+        address: formData.client_address,
+        city: formData.client_city,
+        zip: formData.client_zip,
+        province: formData.client_province,
+        email: (formData as any).client_email || '',
+      }),
+    });
+    setSelectedFromDB(true);
+  };
 
   // Initialize IRPF rate from settings (only for invoices, only for autónomos)
   useEffect(() => {
@@ -129,8 +199,24 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
     }));
   };
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!formData.client_name.trim()) errors.client_name = 'Obligatorio';
+    if ((type === 'invoice' || type === 'abono') && !formData.client_dni?.trim()) errors.client_dni = 'Obligatorio en facturas';
+    if ((type === 'invoice' || type === 'abono') && !formData.client_address?.trim()) errors.client_address = 'Obligatorio en facturas';
+    if ((type === 'invoice' || type === 'abono') && !formData.client_city?.trim()) errors.client_city = 'Obligatorio en facturas';
+    if (formData.items.some(i => !i.concept.trim())) errors.items = 'Todos los conceptos deben tener descripción';
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent, saveStatus?: string) => {
     e.preventDefault();
+    if (!validateForm()) {
+      const firstError = document.querySelector('[data-has-error="true"]');
+      firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -257,18 +343,69 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
 
         {/* Client Section */}
         <div className="space-y-4">
-          <div className="flex items-center gap-3 px-1">
-            <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-white shadow-lg border border-white/10">
-              <User size={12} />
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-white shadow-lg border border-white/10">
+                <User size={12} />
+              </div>
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">DATOS DEL RECEPTOR</h3>
             </div>
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">DATOS DEL RECEPTOR</h3>
+            {formData.client_name.trim() && !selectedFromDB && (
+              <button type="button" onClick={saveClientToDB}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-indigo-500/20 transition-all">
+                <UserPlus size={11} /> Guardar cliente
+              </button>
+            )}
           </div>
-          
+
+          {/* Client autocomplete search */}
+          <div ref={clientSearchRef} className="relative">
+            <div className="relative">
+              <Search size={13} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <input
+                type="text"
+                value={clientQuery}
+                onChange={e => {
+                  setClientQuery(e.target.value);
+                  setSelectedFromDB(false);
+                  setFormData(prev => ({ ...prev, client_name: e.target.value }));
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => clientQuery.length >= 2 && setShowSuggestions(true)}
+                placeholder="Buscar cliente guardado o escribe un nombre nuevo..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-white/10 rounded-xl outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all font-bold text-slate-200 placeholder:text-slate-600 text-sm"
+              />
+            </div>
+            <AnimatePresence>
+              {showSuggestions && clientSuggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="absolute top-full mt-1 left-0 right-0 bg-slate-800 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden"
+                >
+                  {clientSuggestions.map(c => (
+                    <button key={c.id} type="button" onClick={() => selectClient(c)}
+                      className="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0">
+                      <div className="w-7 h-7 rounded-full bg-indigo-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                        <User size={12} className="text-indigo-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-white">{c.name}</p>
+                        <p className="text-[9px] text-slate-500 font-bold">{[c.nif, c.city].filter(Boolean).join(' · ')}</p>
+                      </div>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <InputGroup label="Cliente / Razón Social" value={formData.client_name} onChange={v => setFormData({ ...formData, client_name: v })} placeholder="Nombre del cliente" required />
-            <InputGroup label="NIF / CIF" value={formData.client_dni} onChange={v => setFormData({ ...formData, client_dni: v })} placeholder="Identificación fiscal" />
-            <InputGroup label="Dirección Postal" value={formData.client_address} onChange={v => setFormData({ ...formData, client_address: v })} placeholder="Calle y número" />
-            <InputGroup label="Ciudad" value={formData.client_city} onChange={v => setFormData({ ...formData, client_city: v })} placeholder="Municipio" />
+            <InputGroup label="Cliente / Razón Social *" value={formData.client_name} onChange={v => { setFormData({ ...formData, client_name: v }); setClientQuery(v); }} placeholder="Nombre del cliente" required error={validationErrors.client_name} />
+            <InputGroup label={`NIF / CIF${type !== 'quote' ? ' *' : ''}`} value={formData.client_dni} onChange={v => setFormData({ ...formData, client_dni: v })} placeholder="Identificación fiscal" error={validationErrors.client_dni} />
+            <InputGroup label={`Dirección Postal${type !== 'quote' ? ' *' : ''}`} value={formData.client_address} onChange={v => setFormData({ ...formData, client_address: v })} placeholder="Calle y número" error={validationErrors.client_address} />
+            <InputGroup label={`Ciudad${type !== 'quote' ? ' *' : ''}`} value={formData.client_city} onChange={v => setFormData({ ...formData, client_city: v })} placeholder="Municipio" error={validationErrors.client_city} />
             <InputGroup label="Código Postal" value={formData.client_zip || ''} onChange={v => setFormData({ ...formData, client_zip: v })} placeholder="00000" />
             <InputGroup label="Provincia" value={formData.client_province || ''} onChange={v => setFormData({ ...formData, client_province: v })} placeholder="Provincia" />
             {type === 'invoice' && (
@@ -463,18 +600,19 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
   );
 }
 
-function InputGroup({ label, value, onChange, placeholder, required, type = 'text' }: { label: string, value: string, onChange: (v: string) => void, placeholder: string, required?: boolean, type?: string }) {
+function InputGroup({ label, value, onChange, placeholder, required, type = 'text', error }: { label: string, value: string, onChange: (v: string) => void, placeholder: string, required?: boolean, type?: string, error?: string }) {
   return (
-    <div className="space-y-1.5 px-1 flex flex-col items-start">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+    <div className="space-y-1.5 px-1 flex flex-col items-start" data-has-error={!!error}>
+      <label className={`text-[10px] font-black uppercase tracking-widest ${error ? 'text-rose-400' : 'text-slate-400'}`}>{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full bg-transparent border-b border-white/10 py-1 font-bold text-slate-200 outline-none focus:border-purple-400 transition-colors text-sm"
+        className={`w-full bg-transparent border-b py-1 font-bold text-slate-200 outline-none focus:border-purple-400 transition-colors text-sm ${error ? 'border-rose-500' : 'border-white/10'}`}
         placeholder={placeholder}
         required={required}
       />
+      {error && <p className="text-[9px] font-black text-rose-400">{error}</p>}
     </div>
   );
 }

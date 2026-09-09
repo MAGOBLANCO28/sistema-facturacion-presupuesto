@@ -115,6 +115,21 @@ async function initDB() {
       ticket_image_url TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS clients (
+      id SERIAL PRIMARY KEY,
+      tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      nif TEXT,
+      email TEXT,
+      phone TEXT,
+      address TEXT,
+      city TEXT,
+      province TEXT,
+      zip TEXT,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
 
   // Migraciones / Actualizaciones de esquema
@@ -537,7 +552,7 @@ async function startServer() {
   // Agente Cobros: cada día a las 9:00
   cron.schedule('0 9 * * *', ejecutarAgenteCobros, { timezone: 'Europe/Madrid' });
   // Agente Impuestos: cada día a las 8:00
-  cron.schedule('0 8 * * *', ejecutarAgenteImpuestos, { timezone: 'Europe/Madrid' });
+  cron.schedule('0 8 * * *', () => ejecutarAgenteImpuestos(), { timezone: 'Europe/Madrid' });
   console.log('⏰ Cron jobs de agentes IA activados');
 
   const app = express();
@@ -707,6 +722,59 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // ── CLIENTES (CARTERA) ───────────────────────────
+  app.get("/api/clients", authMiddleware, async (req: any, res) => {
+    const search = (req.query.search as string) || '';
+    const result = search.length >= 2
+      ? await pool.query(
+          `SELECT * FROM clients WHERE tenant_id = $1
+           AND (name ILIKE $2 OR nif ILIKE $2 OR email ILIKE $2)
+           ORDER BY name ASC LIMIT 20`,
+          [req.tenantId, `%${search}%`]
+        )
+      : await pool.query(
+          'SELECT * FROM clients WHERE tenant_id = $1 ORDER BY name ASC',
+          [req.tenantId]
+        );
+    res.json(result.rows);
+  });
+
+  app.post("/api/clients", authMiddleware, async (req: any, res) => {
+    const { name, nif, email, phone, address, city, province, zip, notes } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    const existing = await pool.query(
+      'SELECT id FROM clients WHERE tenant_id = $1 AND LOWER(name) = LOWER($2)',
+      [req.tenantId, name.trim()]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'Ya existe un cliente con ese nombre' });
+    }
+    const result = await pool.query(
+      `INSERT INTO clients (tenant_id, name, nif, email, phone, address, city, province, zip, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [req.tenantId, name.trim(), nif||null, email||null, phone||null, address||null, city||null, province||null, zip||null, notes||null]
+    );
+    res.json(result.rows[0]);
+  });
+
+  app.put("/api/clients/:id", authMiddleware, async (req: any, res) => {
+    const { name, nif, email, phone, address, city, province, zip, notes } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    const result = await pool.query(
+      `UPDATE clients SET name=$1, nif=$2, email=$3, phone=$4, address=$5,
+       city=$6, province=$7, zip=$8, notes=$9
+       WHERE id=$10 AND tenant_id=$11 RETURNING *`,
+      [name.trim(), nif||null, email||null, phone||null, address||null, city||null, province||null, zip||null, notes||null, req.params.id, req.tenantId]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Cliente no encontrado' });
+    res.json(result.rows[0]);
+  });
+
+  app.delete("/api/clients/:id", authMiddleware, async (req: any, res) => {
+    await pool.query('DELETE FROM clients WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
+    res.json({ success: true });
+  });
+
   // ── LOGO ──────────────────────────────────────────
   app.post("/api/settings/logo", authMiddleware, upload.single("logo"), async (req: any, res) => {
     if (!req.file) return res.status(400).json({ error: "No se subió ningún archivo" });
@@ -775,6 +843,17 @@ async function startServer() {
 
   app.post("/api/documents", authMiddleware, async (req: any, res) => {
     const { type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id, fecha_vencimiento, client_email } = req.body;
+
+    // Validación obligatoria alineada con VeriFactu / RD 1619/2012
+    const errors: string[] = [];
+    if (!client_name?.trim()) errors.push('El nombre del cliente es obligatorio');
+    if ((type === 'invoice' || type === 'abono') && !client_dni?.trim()) errors.push('El NIF/CIF del cliente es obligatorio en facturas');
+    if ((type === 'invoice' || type === 'abono') && !client_address?.trim()) errors.push('La dirección del cliente es obligatoria en facturas');
+    if ((type === 'invoice' || type === 'abono') && !client_city?.trim()) errors.push('La ciudad del cliente es obligatoria en facturas');
+    if (!items || !Array.isArray(items) || items.length === 0) errors.push('Debe incluir al menos un concepto');
+    if (items?.some((i: any) => !i.concept?.trim())) errors.push('Todos los conceptos deben tener descripción');
+    if (errors.length > 0) return res.status(400).json({ error: errors.join(' · ') });
+
     try {
       const result = await pool.query(`
         INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id, fecha_vencimiento, client_email)

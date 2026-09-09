@@ -8,7 +8,8 @@ import {
   LayoutDashboard,
   Receipt,
   FileText,
-  MinusCircle
+  MinusCircle,
+  Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DocumentType, DocumentData, CompanySettings } from './types';
@@ -21,6 +22,7 @@ import DashboardView from './components/DashboardView';
 import ExpensesView from './components/ExpensesView';
 import BudgetsView from './components/BudgetsView';
 import AbonosView from './components/AbonosView';
+import ClientsView from './components/ClientsView';
 import Header from './components/common/Header';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
@@ -41,7 +43,7 @@ const API = (path: string, options?: RequestInit) => {
 
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [view, setView] = useState<'dashboard' | 'editor' | 'history' | 'settings' | 'preview' | 'expenses' | 'budgets' | 'abonos'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'editor' | 'history' | 'settings' | 'preview' | 'expenses' | 'budgets' | 'abonos' | 'clients'>('dashboard');
   const [docType, setDocType] = useState<DocumentType>('invoice');
   const [selectedDoc, setSelectedDoc] = useState<DocumentData | null>(null);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -190,6 +192,8 @@ export default function App() {
           <SidebarItem icon={<FileText size={20} />} label="Presupuestos" active={view === 'budgets'} onClick={() => setView('budgets')} activeColor={AMBER} />
           <SidebarItem icon={<History size={20} />} label="Historial" active={view === 'history'} onClick={() => setView('history')} />
           <SidebarItem icon={<MinusCircle size={20} />} label="Abonos" active={view === 'abonos'} onClick={() => setView('abonos')} activeColor={RED} />
+          <div className="py-2"><div className="h-px bg-white/5 w-full" /></div>
+          <SidebarItem icon={<Users size={20} />} label="Clientes" active={view === 'clients'} onClick={() => setView('clients')} activeColor="#6366f1" />
           <SidebarItem icon={<SettingsIcon size={20} />} label="Ajustes" active={view === 'settings'} onClick={() => setView('settings')} />
         </nav>
 
@@ -276,6 +280,12 @@ export default function App() {
                   onRectify={handleRectify}
                   onCreateAbono={handleCreatePartialAbono}
                 />
+              </motion.div>
+            )}
+
+            {view === 'clients' && (
+              <motion.div key="clients" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+                <ClientsView />
               </motion.div>
             )}
 
