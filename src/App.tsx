@@ -23,6 +23,7 @@ import ExpensesView from './components/ExpensesView';
 import BudgetsView from './components/BudgetsView';
 import AbonosView from './components/AbonosView';
 import ClientsView from './components/ClientsView';
+import AssistantChat from './components/AssistantChat';
 import Header from './components/common/Header';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
@@ -318,6 +319,8 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
+
+      <AssistantChat />
 
       {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-2xl border-t border-white/5 px-6 py-4 flex items-center justify-between z-50">

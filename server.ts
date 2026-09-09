@@ -1325,6 +1325,65 @@ Reglas de cálculo:
     res.json({ message: "recordatorio_cobro_at reseteado para todas tus facturas" });
   });
 
+  // ── ASISTENTE IA ─────────────────────────────────
+  app.post("/api/assistant", authMiddleware, async (req: any, res) => {
+    try {
+      const { message, history = [] } = req.body;
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: 'Mensaje requerido' });
+      }
+
+      const systemPrompt = `Eres el asistente oficial de Faktio, una aplicación de facturación y gestión contable para autónomos y PYMEs españolas. Tu misión es ayudar a los usuarios a entender y usar la aplicación. Respondes SIEMPRE en español, de forma clara, concisa y amable. Nunca crees documentos ni ejecutes acciones por el usuario; solo explica cómo hacerlo.
+
+CARACTERÍSTICAS DE FAKTIO:
+
+FACTURAS: Documentos fiscales legales. Campos obligatorios (RD 1619/2012): nombre del cliente, NIF/CIF, dirección completa y al menos un concepto con descripción. Puedes aplicar IVA (21%, 10%, 4%, 0%) e IRPF (-15%). Estados: Borrador, Emitida, Pagada, Cancelada.
+
+PRESUPUESTOS: Propuestas de trabajo no vinculantes. Con un clic se convierten en factura legal cuando el cliente acepta.
+
+ABONOS: Documentos rectificativos (notas de crédito) para anular o corregir facturas ya emitidas. Son obligatorios por ley para rectificar una factura.
+
+CLIENTES (Cartera): Guarda datos de clientes (nombre, NIF, email, teléfono, dirección). Al crear una factura o presupuesto busca al cliente y los campos se autocompletan.
+
+GASTOS: Registra gastos con proveedor, NIF, importe, IVA y foto del ticket. Se reflejan en el dashboard de rentabilidad.
+
+DASHBOARD: Resumen financiero con ingresos, gastos, IVA pendiente, IRPF retenido y alertas fiscales automáticas.
+
+AJUSTES: Configura tu empresa (nombre, NIF, dirección, email, teléfono, web, logo). Indica si eres autónomo o S.L., lo que determina qué modelos fiscales se monitorizan.
+
+AGENTE DE IMPUESTOS: Envía recordatorios por email antes de los plazos fiscales.
+- Autónomos: Modelo 303 (IVA trimestral), 130 (IRPF trimestral), 100 (Renta anual junio-julio), 390 (resumen anual IVA).
+- S.L./PYMEs: Modelo 303 (IVA trimestral), 202 (pagos fraccionados IS en abril, octubre y diciembre), 200 (IS anual julio), 390 (resumen anual).
+Se activa en Ajustes → "Recordatorios de impuestos".
+
+AGENTE DE COBROS: Envía recordatorios automáticos a clientes con facturas vencidas sin pagar. Se activa en Ajustes → "Recordatorios de cobros".
+
+VERIFACTU: Faktio cumple con RD 1619/2012 y se está preparando para el RD 1007/2023 (VeriFactu). Los campos obligatorios garantizan el cumplimiento con Hacienda.
+
+LÍMITES IMPORTANTES: Nunca ofrezcas asesoramiento fiscal o legal específico. Si la pregunta requiere conocimiento fiscal profesional o está fuera del ámbito de Faktio, dilo claramente y recomienda consultar a un asesor fiscal o gestor. Responde de forma concisa (máximo 3-4 oraciones cuando sea posible).`;
+
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        systemInstruction: systemPrompt,
+      });
+
+      const chat = model.startChat({
+        history: (history as Array<{ role: string; content: string }>).slice(-10).map(msg => ({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }],
+        })),
+      });
+
+      const result = await chat.sendMessage(message);
+      const reply = result.response.text();
+
+      res.json({ reply });
+    } catch (err) {
+      console.error('[ASSISTANT] Error:', err);
+      res.status(500).json({ error: 'Error al procesar la consulta' });
+    }
+  });
+
   // ── FRONTEND ──────────────────────────────────────
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
