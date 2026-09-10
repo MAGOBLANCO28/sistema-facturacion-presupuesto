@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageCircle, X, Send, AlertTriangle, Sparkles } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const authFetch = (url: string, options?: RequestInit) => {
   const token = localStorage.getItem('token');
@@ -26,6 +28,19 @@ const SUGGESTIONS = [
   '¿Cómo funciona el recordatorio de impuestos?',
   '¿Qué datos son obligatorios en una factura?',
 ];
+
+const mdComponents = {
+  p: ({ children }: any) => <p className="mb-1.5 last:mb-0">{children}</p>,
+  strong: ({ children }: any) => <strong className="font-black text-white">{children}</strong>,
+  em: ({ children }: any) => <em className="italic text-slate-300">{children}</em>,
+  ul: ({ children }: any) => <ul className="list-disc list-outside pl-4 mb-1.5 space-y-0.5">{children}</ul>,
+  ol: ({ children }: any) => <ol className="list-decimal list-outside pl-4 mb-1.5 space-y-0.5">{children}</ol>,
+  li: ({ children }: any) => <li className="text-slate-200">{children}</li>,
+  code: ({ children }: any) => <code className="px-1 py-0.5 bg-white/10 rounded text-purple-300 font-mono text-[10px]">{children}</code>,
+  h1: ({ children }: any) => <p className="font-black text-white text-xs mb-1">{children}</p>,
+  h2: ({ children }: any) => <p className="font-black text-white text-xs mb-1">{children}</p>,
+  h3: ({ children }: any) => <p className="font-black text-slate-200 text-[11px] mb-1">{children}</p>,
+};
 
 export default function AssistantChat() {
   const [open, setOpen] = useState(false);
@@ -135,12 +150,18 @@ export default function AssistantChat() {
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[88%] px-3.5 py-2.5 rounded-2xl text-[11px] font-bold leading-relaxed whitespace-pre-wrap ${
+                  <div className={`max-w-[88%] px-3.5 py-2.5 rounded-2xl text-[11px] font-bold leading-relaxed ${
                     msg.role === 'user'
                       ? 'bg-purple-600 text-white rounded-br-sm'
-                      : 'bg-white/5 border border-white/5 text-slate-200 rounded-bl-sm'
+                      : 'bg-white/5 border border-white/5 text-slate-300 rounded-bl-sm'
                   }`}>
-                    {msg.content}
+                    {msg.role === 'user' ? (
+                      msg.content
+                    ) : (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                        {msg.content}
+                      </ReactMarkdown>
+                    )}
                   </div>
                 </div>
               ))}
