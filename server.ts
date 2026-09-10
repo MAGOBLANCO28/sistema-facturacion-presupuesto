@@ -11,6 +11,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs";
 import nodemailer from "nodemailer";
 import cron from "node-cron";
+import rateLimit from "express-rate-limit";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -160,6 +161,15 @@ async function initDB() {
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS recordatorios_impuestos BOOLEAN DEFAULT true;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS dias_aviso_cobro INTEGER DEFAULT 3;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS website TEXT;
+    ALTER TABLE tenants ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
+  `);
+
+  // Índices para rendimiento multi-tenant
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_tenant_id ON documents(tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_expenses_tenant_id ON expenses(tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_clients_tenant_id ON clients(tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_settings_tenant_id ON settings(tenant_id);
   `);
 
   console.log("✅ Base de datos lista");
@@ -518,11 +528,38 @@ function authMiddleware(req: any, res: any, next: any) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     req.tenantId = decoded.tenantId;
+    req.isAdmin = decoded.isAdmin === true;
     next();
   } catch {
     res.status(401).json({ error: "Token inválido" });
   }
 }
+
+function adminMiddleware(req: any, res: any, next: any) {
+  if (!req.isAdmin) return res.status(403).json({ error: "Acceso restringido a administradores" });
+  next();
+}
+
+// Rate limiters (por tenant, no por IP)
+const assistantLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req: any) => String(req.tenantId || req.ip),
+  message: { error: "Límite alcanzado: máximo 30 consultas al asistente por hora. Inténtalo más tarde." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req: any) => req.isAdmin === true,
+});
+
+const ocrLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req: any) => String(req.tenantId || req.ip),
+  message: { error: "Límite alcanzado: máximo 20 escaneos por día. Inténtalo mañana." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req: any) => req.isAdmin === true,
+});
 
 // Middleware de Inalterabilidad (Pre-VeriFactu)
 async function inalterabilityMiddleware(req: any, res: any, next: any) {
@@ -686,8 +723,8 @@ async function startServer() {
       if (!tenant) return res.status(400).json({ error: "Email o contraseña incorrectos" });
       const valid = await bcrypt.compare(password, tenant.password);
       if (!valid) return res.status(400).json({ error: "Email o contraseña incorrectos" });
-      const token = jwt.sign({ tenantId: tenant.id }, JWT_SECRET, { expiresIn: "7d" });
-      res.json({ token, hasPin: !!tenant.security_pin });
+      const token = jwt.sign({ tenantId: tenant.id, isAdmin: tenant.is_admin === true }, JWT_SECRET, { expiresIn: "7d" });
+      res.json({ token, hasPin: !!tenant.security_pin, isAdmin: tenant.is_admin === true });
     } catch {
       res.status(500).json({ error: "Error al iniciar sesión" });
     }
@@ -1058,7 +1095,7 @@ async function startServer() {
   });
 
   // ── OCR INTELIGENTE (Gemini Vision) ────────────────
-  app.post("/api/expenses/ocr", authMiddleware, (req: any, res: any, next: any) => {
+  app.post("/api/expenses/ocr", authMiddleware, ocrLimiter, (req: any, res: any, next: any) => {
     upload.single("ticket")(req, res, (err: any) => {
       if (err instanceof multer.MulterError) {
         return res.status(400).json({ error: `Archivo demasiado grande. Máximo 20MB permitido.` });
@@ -1286,31 +1323,50 @@ Reglas de cálculo:
 
   // ── ADMIN: GESTIÓN DE CUENTAS ────────────────────────
   // Lista todos los tenants registrados (para detectar cuentas huérfanas/demo)
-  app.get("/api/admin/tenants", authMiddleware, async (_req, res) => {
+  // ── PERFIL PROPIO ──────────────────────────────────
+  app.get("/api/me", authMiddleware, async (req: any, res) => {
+    const result = await pool.query("SELECT id, email, is_admin FROM tenants WHERE id = $1", [req.tenantId]);
+    res.json(result.rows[0] || {});
+  });
+
+  // ── PANEL DE ADMINISTRACIÓN ────────────────────────
+  app.get("/api/admin/tenants", authMiddleware, adminMiddleware, async (_req, res) => {
     const result = await pool.query(`
-      SELECT t.id, t.email AS login_email, s.company_name, s.email AS fiscal_email,
-             s.notification_email, t.created_at
+      SELECT t.id, t.email AS login_email, t.is_admin, s.company_name, s.owner_name,
+             s.email AS fiscal_email, s.notification_email, t.created_at,
+             (SELECT COUNT(*) FROM documents WHERE tenant_id = t.id) AS total_docs,
+             (SELECT COUNT(*) FROM expenses WHERE tenant_id = t.id) AS total_expenses
       FROM tenants t
       LEFT JOIN settings s ON t.id = s.tenant_id
-      ORDER BY t.id
+      ORDER BY t.created_at DESC
     `);
     res.json(result.rows);
   });
 
-  // Elimina un tenant por ID (no puede ser el propio)
-  app.delete("/api/admin/tenant/:id", authMiddleware, async (req: any, res) => {
+  // Impersonar a un usuario (solo admin) — genera JWT temporal de 2h para soporte
+  app.post("/api/admin/impersonate/:id", authMiddleware, adminMiddleware, async (req: any, res) => {
     const targetId = parseInt(req.params.id);
-    if (targetId === req.tenantId) {
-      return res.status(400).json({ error: "No puedes eliminar tu propia cuenta desde este endpoint" });
-    }
-    await pool.query("DELETE FROM tenants WHERE id = $1", [targetId]);
-    res.json({ message: `Tenant ${targetId} eliminado correctamente` });
+    if (isNaN(targetId)) return res.status(400).json({ error: "ID inválido" });
+    const result = await pool.query("SELECT id, email FROM tenants WHERE id = $1", [targetId]);
+    if (!result.rows[0]) return res.status(404).json({ error: "Usuario no encontrado" });
+    const token = jwt.sign({ tenantId: targetId, isAdmin: false, impersonatedBy: req.tenantId }, JWT_SECRET, { expiresIn: "2h" });
+    res.json({ token, email: result.rows[0].email });
   });
 
-  // Elimina TODAS las cuentas excepto la del usuario autenticado (limpieza de cuentas demo/test)
-  app.delete("/api/admin/cleanup-others", authMiddleware, async (req: any, res) => {
+  // Elimina un tenant por ID (solo admin, no puede ser el propio)
+  app.delete("/api/admin/tenant/:id", authMiddleware, adminMiddleware, async (req: any, res) => {
+    const targetId = parseInt(req.params.id);
+    if (targetId === req.tenantId) {
+      return res.status(400).json({ error: "No puedes eliminar tu propia cuenta" });
+    }
+    await pool.query("DELETE FROM tenants WHERE id = $1", [targetId]);
+    res.json({ message: `Usuario ${targetId} eliminado` });
+  });
+
+  // Limpieza de cuentas de prueba (solo admin)
+  app.delete("/api/admin/cleanup-others", authMiddleware, adminMiddleware, async (req: any, res) => {
     const result = await pool.query(
-      "DELETE FROM tenants WHERE id != $1 RETURNING id, email",
+      "DELETE FROM tenants WHERE id != $1 AND is_admin = FALSE RETURNING id, email",
       [req.tenantId]
     );
     res.json({ eliminados: result.rows, mensaje: `${result.rowCount} cuenta(s) eliminada(s)` });
@@ -1326,7 +1382,7 @@ Reglas de cálculo:
   });
 
   // ── ASISTENTE IA ─────────────────────────────────
-  app.post("/api/assistant", authMiddleware, async (req: any, res) => {
+  app.post("/api/assistant", authMiddleware, assistantLimiter, async (req: any, res) => {
     try {
       const { message, history = [] } = req.body;
       if (!message || typeof message !== 'string') {

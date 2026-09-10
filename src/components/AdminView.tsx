@@ -1,0 +1,180 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'motion/react';
+import { Shield, Users, FileText, Receipt, LogIn, Trash2, Check, X, RefreshCw } from 'lucide-react';
+
+const authFetch = (url: string, options?: RequestInit) => {
+  const token = localStorage.getItem('token');
+  return fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
+  });
+};
+
+interface Tenant {
+  id: number;
+  login_email: string;
+  company_name: string | null;
+  owner_name: string | null;
+  fiscal_email: string | null;
+  is_admin: boolean;
+  created_at: string;
+  total_docs: string;
+  total_expenses: string;
+}
+
+interface AdminViewProps {
+  onImpersonate: (token: string, email: string) => void;
+}
+
+export default function AdminView({ onImpersonate }: AdminViewProps) {
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [impersonating, setImpersonating] = useState<number | null>(null);
+
+  const fetchTenants = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch('/api/admin/tenants');
+      const data = await res.json();
+      setTenants(Array.isArray(data) ? data : []);
+    } catch {
+      setTenants([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchTenants(); }, [fetchTenants]);
+
+  const handleImpersonate = async (tenant: Tenant) => {
+    setImpersonating(tenant.id);
+    try {
+      const res = await authFetch(`/api/admin/impersonate/${tenant.id}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.token) {
+        onImpersonate(data.token, tenant.login_email);
+      }
+    } catch {
+      alert('Error al impersonar usuario');
+    } finally {
+      setImpersonating(null);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await authFetch(`/api/admin/tenant/${id}`, { method: 'DELETE' });
+      setDeleteConfirm(null);
+      fetchTenants();
+    } catch {
+      alert('Error al eliminar usuario');
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-2xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center">
+            <Shield size={18} className="text-rose-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-white tracking-tighter">Panel de Administración</h2>
+            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{tenants.length} usuarios registrados</p>
+          </div>
+        </div>
+        <button
+          onClick={fetchTenants}
+          className="p-2.5 bg-white/5 border border-white/5 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-all"
+        >
+          <RefreshCw size={14} />
+        </button>
+      </div>
+
+      <div className="bg-rose-500/5 border border-rose-500/15 rounded-2xl px-4 py-3 flex items-center gap-2.5">
+        <Shield size={12} className="text-rose-400 shrink-0" />
+        <p className="text-[10px] text-rose-300/70 font-bold">
+          Zona restringida. Al entrar como un usuario verás su cuenta durante 2 horas. No modifiques datos sin su consentimiento.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-6 h-6 border-2 border-rose-500/20 border-t-rose-500 rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {tenants.map(tenant => (
+            <motion.div
+              key={tenant.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white/3 border border-white/5 rounded-2xl p-4 hover:bg-white/5 hover:border-white/10 transition-all"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-black text-white text-sm">{tenant.login_email}</p>
+                    {tenant.is_admin && (
+                      <span className="px-2 py-0.5 bg-rose-500/15 border border-rose-500/20 rounded-lg text-[8px] font-black text-rose-400 uppercase tracking-widest">Admin</span>
+                    )}
+                  </div>
+                  {tenant.company_name && (
+                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">{tenant.company_name}{tenant.owner_name ? ` · ${tenant.owner_name}` : ''}</p>
+                  )}
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className="flex items-center gap-1 text-[9px] text-slate-500 font-bold">
+                      <FileText size={9} /> {tenant.total_docs} docs
+                    </span>
+                    <span className="flex items-center gap-1 text-[9px] text-slate-500 font-bold">
+                      <Receipt size={9} /> {tenant.total_expenses} gastos
+                    </span>
+                    <span className="flex items-center gap-1 text-[9px] text-slate-600 font-bold">
+                      <Users size={9} /> {new Date(tenant.created_at).toLocaleDateString('es-ES')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {!tenant.is_admin && (
+                    <>
+                      <button
+                        onClick={() => handleImpersonate(tenant)}
+                        disabled={impersonating === tenant.id}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all disabled:opacity-50"
+                      >
+                        {impersonating === tenant.id
+                          ? <div className="w-3 h-3 border border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin" />
+                          : <LogIn size={11} />}
+                        Entrar
+                      </button>
+                      {deleteConfirm === tenant.id ? (
+                        <div className="flex gap-1">
+                          <button onClick={() => handleDelete(tenant.id)} className="p-2 bg-rose-500/20 text-rose-400 rounded-xl hover:bg-rose-500/30 transition-all">
+                            <Check size={12} />
+                          </button>
+                          <button onClick={() => setDeleteConfirm(null)} className="p-2 bg-white/5 text-slate-500 rounded-xl hover:bg-white/10 transition-all">
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setDeleteConfirm(tenant.id)} className="p-2 bg-white/5 text-slate-600 hover:bg-rose-500/15 hover:text-rose-400 rounded-xl transition-all">
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

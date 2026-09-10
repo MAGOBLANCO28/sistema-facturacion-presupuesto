@@ -9,7 +9,9 @@ import {
   Receipt,
   FileText,
   MinusCircle,
-  Users
+  Users,
+  Shield,
+  UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DocumentType, DocumentData, CompanySettings } from './types';
@@ -23,6 +25,7 @@ import ExpensesView from './components/ExpensesView';
 import BudgetsView from './components/BudgetsView';
 import AbonosView from './components/AbonosView';
 import ClientsView from './components/ClientsView';
+import AdminView from './components/AdminView';
 import AssistantChat from './components/AssistantChat';
 import Header from './components/common/Header';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -44,7 +47,7 @@ const API = (path: string, options?: RequestInit) => {
 
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [view, setView] = useState<'dashboard' | 'editor' | 'history' | 'settings' | 'preview' | 'expenses' | 'budgets' | 'abonos' | 'clients'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'editor' | 'history' | 'settings' | 'preview' | 'expenses' | 'budgets' | 'abonos' | 'clients' | 'admin'>('dashboard');
   const [docType, setDocType] = useState<DocumentType>('invoice');
   const [selectedDoc, setSelectedDoc] = useState<DocumentData | null>(null);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -52,6 +55,8 @@ export default function App() {
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [notifications, setNotifications] = useState<string[]>([]);
   const [historyKey, setHistoryKey] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [impersonating, setImpersonating] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -69,8 +74,18 @@ export default function App() {
   }, [token, lastActivity]);
 
   useEffect(() => {
-    if (token) { fetchSettings(); checkFiscalAlerts(); }
+    if (token) { fetchSettings(); checkFiscalAlerts(); fetchMe(); }
   }, [token]);
+
+  const fetchMe = async () => {
+    try {
+      const res = await API('/api/me');
+      if (res.ok) {
+        const data = await res.json();
+        setIsAdmin(data.is_admin === true);
+      }
+    } catch {}
+  };
 
   const checkFiscalAlerts = async () => {
     try {
@@ -99,9 +114,31 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('adminToken');
     setToken(null);
     setSettings(null);
+    setIsAdmin(false);
+    setImpersonating(null);
     setView('dashboard');
+  };
+
+  const handleImpersonate = (userToken: string, email: string) => {
+    localStorage.setItem('adminToken', localStorage.getItem('token') || '');
+    localStorage.setItem('token', userToken);
+    setToken(userToken);
+    setImpersonating(email);
+    setIsAdmin(false);
+    setView('dashboard');
+  };
+
+  const handleStopImpersonating = () => {
+    const adminToken = localStorage.getItem('adminToken') || '';
+    localStorage.setItem('token', adminToken);
+    localStorage.removeItem('adminToken');
+    setToken(adminToken);
+    setImpersonating(null);
+    setIsAdmin(true);
+    setView('admin');
   };
 
   const handleRectify = async (doc: DocumentData) => {
@@ -196,6 +233,9 @@ export default function App() {
           <div className="py-2"><div className="h-px bg-white/5 w-full" /></div>
           <SidebarItem icon={<Users size={20} />} label="Clientes" active={view === 'clients'} onClick={() => setView('clients')} activeColor="#6366f1" />
           <SidebarItem icon={<SettingsIcon size={20} />} label="Ajustes" active={view === 'settings'} onClick={() => setView('settings')} />
+          {isAdmin && (
+            <SidebarItem icon={<Shield size={20} />} label="Administración" active={view === 'admin'} onClick={() => setView('admin')} activeColor="#f43f5e" />
+          )}
         </nav>
 
         <div className="p-6 mt-auto">
@@ -226,6 +266,22 @@ export default function App() {
           onSettingsClick={() => setView('settings')}
           notifications={notifications}
         />
+
+        {/* Banner de impersonación */}
+        {impersonating && (
+          <div className="bg-indigo-600/90 backdrop-blur-sm border-b border-indigo-500/30 px-4 py-2.5 flex items-center justify-between gap-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <UserCheck size={14} className="text-indigo-200 shrink-0" />
+              <p className="text-[11px] font-black text-white">Viendo cuenta de <span className="text-indigo-200">{impersonating}</span></p>
+            </div>
+            <button
+              onClick={handleStopImpersonating}
+              className="px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all shrink-0"
+            >
+              Volver a mi cuenta
+            </button>
+          </div>
+        )}
 
         <div className="max-w-6xl mx-auto w-full p-4 sm:p-8 lg:p-12 pb-32">
           <AnimatePresence mode="wait">
@@ -298,6 +354,12 @@ export default function App() {
                   </button>
                 </div>
                 <SettingsView settings={settings} onUpdate={fetchSettings} />
+              </motion.div>
+            )}
+
+            {view === 'admin' && isAdmin && (
+              <motion.div key="admin" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+                <AdminView onImpersonate={handleImpersonate} />
               </motion.div>
             )}
 
