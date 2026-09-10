@@ -1516,16 +1516,20 @@ LÍMITES DEL ASISTENTE:
 Nunca ofrezcas asesoramiento fiscal o legal específico (qué puedo deducirme, si tengo que presentar tal modelo, cuánto debo pagar a Hacienda...). Si la pregunta requiere conocimiento fiscal profesional, dilo claramente y recomienda consultar a un asesor fiscal o gestor. Este asistente orienta sobre el USO de la aplicación, no sobre obligaciones fiscales concretas del usuario.`;
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.5-flash",
         systemInstruction: systemPrompt,
       });
 
-      const chat = model.startChat({
-        history: (history as Array<{ role: string; content: string }>).slice(-10).map(msg => ({
-          role: msg.role === 'user' ? 'user' : 'model',
+      const rawHistory = (history as Array<{ role: string; content: string }>)
+        .slice(-10)
+        .map(msg => ({
+          role: (msg.role === 'user' ? 'user' : 'model') as 'user' | 'model',
           parts: [{ text: msg.content }],
-        })),
-      });
+        }));
+      // Gemini requires history to start with a user message
+      while (rawHistory.length > 0 && rawHistory[0].role === 'model') rawHistory.shift();
+
+      const chat = model.startChat({ history: rawHistory });
 
       const result = await chat.sendMessage(message);
       const reply = result.response.text();
