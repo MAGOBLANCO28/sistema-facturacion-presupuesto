@@ -1329,6 +1329,14 @@ Reglas de cálculo:
     res.json(result.rows[0] || {});
   });
 
+  // Bootstrap de administrador — solo funciona si aún no existe ningún admin
+  app.post("/api/admin/bootstrap", authMiddleware, async (req: any, res) => {
+    const existing = await pool.query("SELECT id FROM tenants WHERE is_admin = TRUE LIMIT 1");
+    if (existing.rows.length > 0) return res.status(403).json({ error: "Ya existe un administrador. Endpoint desactivado." });
+    await pool.query("UPDATE tenants SET is_admin = TRUE WHERE id = $1", [req.tenantId]);
+    res.json({ message: "Tu cuenta ha sido promovida a administradora. Vuelve a iniciar sesión." });
+  });
+
   // ── PANEL DE ADMINISTRACIÓN ────────────────────────
   app.get("/api/admin/tenants", authMiddleware, adminMiddleware, async (_req, res) => {
     const result = await pool.query(`
