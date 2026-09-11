@@ -57,10 +57,7 @@ const PLAN_PERKS: Record<Plan, string[]> = {
     'Logo de empresa en facturas PDF',
   ],
   profesional: [
-    'Todo lo del Plan Autónomo',
-    'Envío de facturas por email directamente desde Faktio',
-    'Facturas recurrentes automáticas para clientes fijos',
-    'Acceso de solo lectura para tu gestor/asesor',
+    'Todo lo incluido en el Plan Autónomo',
   ],
 };
 
