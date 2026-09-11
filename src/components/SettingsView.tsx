@@ -16,6 +16,9 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { CompanySettings } from '../types';
 import Card from './common/Card';
+import { usePlan } from '../context/PlanContext';
+import UpgradeModal from './UpgradeModal';
+import { PLAN_REQUIRED } from '../context/PlanContext';
 
 interface Props {
   settings: CompanySettings | null;
@@ -35,6 +38,8 @@ const authFetch = (url: string, options?: RequestInit) => {
 };
 
 export default function SettingsView({ settings, onUpdate }: Props) {
+  const { plan, canUse } = usePlan();
+  const [upgradeModal, setUpgradeModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
   const [formData, setFormData] = useState<CompanySettings>({
     company_name: '',
@@ -169,19 +174,28 @@ export default function SettingsView({ settings, onUpdate }: Props) {
         {activeTab === 'profile' ? (
           <form key="profile" onSubmit={handleSubmit} className="space-y-3">
             <Card className="p-3 flex flex-col items-center justify-center text-center gap-2">
-              <label className="relative cursor-pointer group">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden border border-white/10 group-hover:border-purple-500/50 transition-all bg-slate-900 shadow-xl relative z-10">
+              <label
+                className="relative cursor-pointer group"
+                onClick={e => { if (!canUse('logo')) { e.preventDefault(); setUpgradeModal(true); } }}
+              >
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden border transition-all bg-slate-900 shadow-xl relative z-10 ${
+                  canUse('logo') ? 'border-white/10 group-hover:border-purple-500/50' : 'border-amber-500/20'
+                }`}>
                   {settings?.logo_url ? (
                     <img src={settings.logo_url} alt="Logo" className="w-full h-full object-contain" />
-                  ) : (
+                  ) : canUse('logo') ? (
                     <Building2 size={32} className="text-slate-600 group-hover:text-purple-400 group-hover:scale-110 transition-all duration-300" />
+                  ) : (
+                    <span className="text-2xl">🔒</span>
                   )}
                 </div>
 
-                <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl z-20 backdrop-blur-sm">
-                  <Upload size={20} className="text-white" />
-                </div>
+                {canUse('logo') && <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />}
+                {canUse('logo') && (
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl z-20 backdrop-blur-sm">
+                    <Upload size={20} className="text-white" />
+                  </div>
+                )}
                 {uploadingLogo && (
                   <div className="absolute inset-0 bg-slate-900/90 flex items-center justify-center rounded-2xl z-30 backdrop-blur-sm">
                     <div className="w-6 h-6 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
@@ -190,9 +204,20 @@ export default function SettingsView({ settings, onUpdate }: Props) {
               </label>
               <div className="space-y-1">
                  <h3 className="font-black text-white text-sm">Logo de Empresa</h3>
-                 <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">PNG / JPG (Max 5MB)</p>
+                 {canUse('logo')
+                   ? <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">PNG / JPG (Max 5MB)</p>
+                   : <p className="text-[10px] text-amber-500/70 font-bold">Requiere Plan Profesional</p>
+                 }
               </div>
             </Card>
+
+            <UpgradeModal
+              open={upgradeModal}
+              onClose={() => setUpgradeModal(false)}
+              feature="logo"
+              currentPlan={plan}
+              requiredPlan={PLAN_REQUIRED['logo']}
+            />
 
             {/* Formulario */}
             <Card className="md:col-span-2 p-3 space-y-3">

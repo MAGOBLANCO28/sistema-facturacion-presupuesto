@@ -5,6 +5,9 @@ import {
 } from 'lucide-react';
 import { Expense } from '../types';
 import Card from './common/Card';
+import { usePlan } from '../context/PlanContext';
+import UpgradeModal from './UpgradeModal';
+import { PLAN_REQUIRED } from '../context/PlanContext';
 
 const formatEuro = (n: number) =>
   new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
@@ -44,6 +47,8 @@ const EMPTY_FORM = {
 };
 
 export default function ExpensesView() {
+  const { plan, canUse } = usePlan();
+  const [upgradeModal, setUpgradeModal]   = useState<'ocr' | 'csv' | null>(null);
   const [expenses, setExpenses]           = useState<Expense[]>([]);
   const [loading, setLoading]             = useState(true);
   const [scanning, setScanning]           = useState(false);
@@ -51,7 +56,7 @@ export default function ExpensesView() {
   const [saving, setSaving]               = useState(false);
   const [formData, setFormData]           = useState(EMPTY_FORM);
   const [selectedExpense, setSelected]    = useState<Expense | null>(null);
-  const [scannedPreview, setScannedPreview] = useState<string | null>(null); // preview local del archivo escaneado
+  const [scannedPreview, setScannedPreview] = useState<string | null>(null);
 
   useEffect(() => { fetchExpenses(); }, []);
 
@@ -84,6 +89,11 @@ export default function ExpensesView() {
   const handleScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!canUse('ocr')) {
+      e.target.value = '';
+      setUpgradeModal('ocr');
+      return;
+    }
     setScanning(true);
     setOcrError(null);
 
@@ -256,9 +266,16 @@ export default function ExpensesView() {
       <Card className="p-0 overflow-hidden bg-white/5 backdrop-blur-md border border-white/10" accent="none">
         <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/5">
           <h3 className="text-sm font-black text-white uppercase tracking-widest">Últimos Gastos</h3>
-          <button onClick={exportCSV}
-            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-indigo-500/20 transition-all">
+          <button
+            onClick={() => { if (!canUse('csv')) { setUpgradeModal('csv'); return; } exportCSV(); }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all border ${
+              canUse('csv')
+                ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20'
+                : 'bg-white/3 border-white/5 text-slate-600 hover:bg-white/8 hover:text-slate-400'
+            }`}
+          >
             <Download size={12} /> Exportar CSV
+            {!canUse('csv') && <span className="text-amber-500">🔒</span>}
           </button>
         </div>
         {loading ? (
@@ -331,6 +348,16 @@ export default function ExpensesView() {
           expense={selectedExpense}
           onClose={() => setSelected(null)}
           onDelete={handleDelete}
+        />
+      )}
+
+      {upgradeModal && (
+        <UpgradeModal
+          open={!!upgradeModal}
+          onClose={() => setUpgradeModal(null)}
+          feature={upgradeModal}
+          currentPlan={plan}
+          requiredPlan={PLAN_REQUIRED[upgradeModal]}
         />
       )}
     </div>

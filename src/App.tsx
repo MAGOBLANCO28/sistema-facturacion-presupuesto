@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   History,
   Settings as SettingsIcon,
@@ -27,6 +27,7 @@ import AbonosView from './components/AbonosView';
 import ClientsView from './components/ClientsView';
 import AdminView from './components/AdminView';
 import AssistantChat from './components/AssistantChat';
+import { PlanProvider, Plan } from './context/PlanContext';
 import Header from './components/common/Header';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
@@ -56,6 +57,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<string[]>([]);
   const [historyKey, setHistoryKey] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [plan, setPlan] = useState<Plan>('libre');
   const [impersonating, setImpersonating] = useState<string | null>(null);
 
   useEffect(() => {
@@ -77,15 +79,16 @@ export default function App() {
     if (token) { fetchSettings(); checkFiscalAlerts(); fetchMe(); }
   }, [token]);
 
-  const fetchMe = async () => {
+  const fetchMe = useCallback(async () => {
     try {
       const res = await API('/api/me');
       if (res.ok) {
         const data = await res.json();
         setIsAdmin(data.is_admin === true);
+        if (data.plan) setPlan(data.plan as Plan);
       }
     } catch {}
-  };
+  }, []);
 
   const checkFiscalAlerts = async () => {
     try {
@@ -118,6 +121,7 @@ export default function App() {
     setToken(null);
     setSettings(null);
     setIsAdmin(false);
+    setPlan('libre');
     setImpersonating(null);
     setView('dashboard');
   };
@@ -128,7 +132,10 @@ export default function App() {
     setToken(userToken);
     setImpersonating(email);
     setIsAdmin(false);
+    setPlan('libre');
     setView('dashboard');
+    // Fetch the impersonated user's real plan
+    setTimeout(fetchMe, 100);
   };
 
   const handleStopImpersonating = () => {
@@ -139,6 +146,8 @@ export default function App() {
     setImpersonating(null);
     setIsAdmin(true);
     setView('admin');
+    // Restore admin's own plan
+    setTimeout(fetchMe, 100);
   };
 
   const handleRectify = async (doc: DocumentData) => {
@@ -205,6 +214,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+    <PlanProvider plan={plan}>
     <div className="min-h-screen bg-[#0f172a] flex text-slate-100 font-sans selection:bg-purple-500/30">
       {/* Desktop Sidebar */}
       <aside
@@ -398,6 +408,7 @@ export default function App() {
         <MobileNavItem icon={<SettingsIcon size={24} />} active={view === 'settings'} onClick={() => setView('settings')} />
       </nav>
     </div>
+    </PlanProvider>
     </ErrorBoundary>
   );
 }

@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Shield, Users, FileText, Receipt, LogIn, Trash2, Check, X, RefreshCw } from 'lucide-react';
+import { Shield, Users, FileText, Receipt, LogIn, Trash2, Check, X, RefreshCw, ChevronDown } from 'lucide-react';
+
+type Plan = 'libre' | 'autonomo' | 'profesional';
+
+const PLAN_LABELS: Record<Plan, string> = {
+  libre: 'Libre',
+  autonomo: 'Autónomo',
+  profesional: 'Profesional',
+};
+
+const PLAN_COLORS: Record<Plan, string> = {
+  libre: 'text-slate-400 bg-slate-500/10 border-slate-500/20',
+  autonomo: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+  profesional: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
+};
 
 const authFetch = (url: string, options?: RequestInit) => {
   const token = localStorage.getItem('token');
@@ -21,6 +35,7 @@ interface Tenant {
   owner_name: string | null;
   fiscal_email: string | null;
   is_admin: boolean;
+  plan: Plan;
   created_at: string;
   total_docs: string;
   total_expenses: string;
@@ -35,6 +50,7 @@ export default function AdminView({ onImpersonate }: AdminViewProps) {
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [impersonating, setImpersonating] = useState<number | null>(null);
+  const [changingPlan, setChangingPlan] = useState<number | null>(null);
 
   const fetchTenants = useCallback(async () => {
     setLoading(true);
@@ -73,6 +89,23 @@ export default function AdminView({ onImpersonate }: AdminViewProps) {
       fetchTenants();
     } catch {
       alert('Error al eliminar usuario');
+    }
+  };
+
+  const handleChangePlan = async (tenantId: number, newPlan: Plan) => {
+    setChangingPlan(tenantId);
+    try {
+      const res = await authFetch(`/api/admin/tenant/${tenantId}/plan`, {
+        method: 'PATCH',
+        body: JSON.stringify({ plan: newPlan }),
+      });
+      if (res.ok) {
+        setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, plan: newPlan } : t));
+      }
+    } catch {
+      alert('Error al cambiar el plan');
+    } finally {
+      setChangingPlan(null);
     }
   };
 
@@ -123,6 +156,9 @@ export default function AdminView({ onImpersonate }: AdminViewProps) {
                     {tenant.is_admin && (
                       <span className="px-2 py-0.5 bg-rose-500/15 border border-rose-500/20 rounded-lg text-[8px] font-black text-rose-400 uppercase tracking-widest">Admin</span>
                     )}
+                    <span className={`px-2 py-0.5 border rounded-lg text-[8px] font-black uppercase tracking-widest ${PLAN_COLORS[tenant.plan || 'libre']}`}>
+                      {PLAN_LABELS[tenant.plan || 'libre']}
+                    </span>
                   </div>
                   {tenant.company_name && (
                     <p className="text-[10px] text-slate-400 font-bold mt-0.5">{tenant.company_name}{tenant.owner_name ? ` · ${tenant.owner_name}` : ''}</p>
@@ -141,6 +177,22 @@ export default function AdminView({ onImpersonate }: AdminViewProps) {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                  {/* Plan selector — visible para todos */}
+                  {!tenant.is_admin && (
+                    <div className="relative">
+                      <select
+                        value={tenant.plan || 'libre'}
+                        onChange={e => handleChangePlan(tenant.id, e.target.value as Plan)}
+                        disabled={changingPlan === tenant.id}
+                        className="appearance-none pl-2.5 pr-6 py-2 bg-white/5 border border-white/8 text-slate-300 text-[10px] font-black rounded-xl cursor-pointer hover:bg-white/10 transition-all disabled:opacity-50 outline-none"
+                      >
+                        <option value="libre">Libre</option>
+                        <option value="autonomo">Autónomo</option>
+                        <option value="profesional">Profesional</option>
+                      </select>
+                      <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                    </div>
+                  )}
                   {!tenant.is_admin && (
                     <>
                       <button

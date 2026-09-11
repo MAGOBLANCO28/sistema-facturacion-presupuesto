@@ -2,6 +2,7 @@ import React from 'react';
 import { DocumentData, CompanySettings } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
 import { Zap, Printer, FileDown } from 'lucide-react';
+import { usePlan } from '../context/PlanContext';
 
 interface Props {
   doc: DocumentData;
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export default function DocumentPreview({ doc, settings, onConvert }: Props) {
+  const { plan } = usePlan();
+  const showWatermark = plan === 'libre';
   const isBudget = doc.type === 'quote';
   const isAbono  = doc.type === 'abono';
 
@@ -60,6 +63,22 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
             margin: 0 !important;
             max-width: 100% !important;
             overflow: visible !important;
+            position: relative !important;
+          }
+
+          /* Marca de agua visible en impresión */
+          .watermark-libre {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) rotate(-35deg) !important;
+            font-size: 5rem !important;
+            font-weight: 900 !important;
+            color: rgba(139,92,246,0.08) !important;
+            letter-spacing: 0.2em !important;
+            white-space: nowrap !important;
+            pointer-events: none !important;
+            z-index: 9999 !important;
           }
 
           /* Cabecera compacta */
@@ -94,7 +113,30 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
       `}} />
 
       {/* Documento */}
-      <div className="invoice-doc bg-white rounded-[2rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.35)] max-w-3xl mx-auto overflow-hidden border border-slate-100">
+      <div className="invoice-doc bg-white rounded-[2rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.35)] max-w-3xl mx-auto overflow-hidden border border-slate-100 relative">
+
+        {/* Marca de agua Plan Libre */}
+        {showWatermark && (
+          <div
+            className="watermark-libre pointer-events-none absolute inset-0 z-50 flex items-center justify-center overflow-hidden"
+            aria-hidden="true"
+          >
+            <span style={{
+              display: 'block',
+              transform: 'rotate(-35deg)',
+              fontSize: '5rem',
+              fontWeight: 900,
+              color: 'rgba(139,92,246,0.06)',
+              letterSpacing: '0.2em',
+              userSelect: 'none',
+              whiteSpace: 'nowrap',
+              textTransform: 'uppercase',
+              fontFamily: 'sans-serif',
+            }}>
+              FAKTIO LIBRE
+            </span>
+          </div>
+        )}
 
         {/* Cabecera */}
         <div className="inv-header px-12 py-10 flex justify-between items-start border-b border-slate-100" style={{ backgroundColor: themeBg }}>

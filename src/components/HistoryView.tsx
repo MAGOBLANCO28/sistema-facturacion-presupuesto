@@ -23,6 +23,9 @@ import {
 } from 'lucide-react';
 import { DocumentData, DocumentStatus } from '../types';
 import Card from './common/Card';
+import { usePlan } from '../context/PlanContext';
+import UpgradeModal from './UpgradeModal';
+import { PLAN_REQUIRED } from '../context/PlanContext';
 
 interface Props {
   onEdit: (doc: DocumentData) => void;
@@ -71,10 +74,12 @@ const STATUS_CONFIG: Record<string, { label: string, color: string, bg: string }
 };
 
 export default function HistoryView({ onEdit, onPreview, onRectify, onCreateAbono }: Props) {
+  const { plan, canUse } = usePlan();
   const [documents, setDocuments] = useState<DocumentData[]>([]);
   const [activeTab, setActiveTab] = useState<'invoices' | 'quotes'>('invoices');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [upgradeModal, setUpgradeModal] = useState(false);
 
   useEffect(() => { fetchDocuments(); }, []);
 
@@ -173,6 +178,7 @@ export default function HistoryView({ onEdit, onPreview, onRectify, onCreateAbon
         <div className="flex items-center gap-3">
           <button
             onClick={async () => {
+              if (!canUse('csv')) { setUpgradeModal(true); return; }
               try {
                 const token = localStorage.getItem('token');
                 const res = await fetch('/api/export/incomes', { headers: { Authorization: `Bearer ${token}` } });
@@ -186,10 +192,23 @@ export default function HistoryView({ onEdit, onPreview, onRectify, onCreateAbon
                 alert('No se pudo exportar el CSV. Inténtalo de nuevo.');
               }
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-500/20 transition-all"
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border ${
+              canUse('csv')
+                ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20'
+                : 'bg-white/3 border-white/5 text-slate-600 hover:bg-white/8 hover:text-slate-400 cursor-pointer'
+            }`}
           >
             <Download size={13} /> Exportar CSV
+            {!canUse('csv') && <span className="text-amber-500">🔒</span>}
           </button>
+
+          <UpgradeModal
+            open={upgradeModal}
+            onClose={() => setUpgradeModal(false)}
+            feature="csv"
+            currentPlan={plan}
+            requiredPlan={PLAN_REQUIRED['csv']}
+          />
           <div className="flex glass p-1 rounded-2xl">
             <TabButton active={activeTab === 'invoices'} onClick={() => { setActiveTab('invoices'); setStatusFilter('all'); }} label="Facturas" icon={<ShieldCheck size={14} />} />
             <TabButton active={activeTab === 'quotes'} onClick={() => { setActiveTab('quotes'); setStatusFilter('all'); }} label="Presupuestos" icon={<FileText size={14} />} />

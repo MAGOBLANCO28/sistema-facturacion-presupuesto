@@ -162,6 +162,7 @@ async function initDB() {
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS dias_aviso_cobro INTEGER DEFAULT 3;
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS website TEXT;
     ALTER TABLE tenants ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
+    ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'libre';
   `);
 
   // Índices para rendimiento multi-tenant
@@ -173,6 +174,29 @@ async function initDB() {
   `);
 
   console.log("✅ Base de datos lista");
+}
+
+// ── PLAN HELPERS ──────────────────────────────────────
+async function getTenantPlan(tenantId: number): Promise<string> {
+  const r = await pool.query('SELECT plan FROM tenants WHERE id = $1', [tenantId]);
+  return r.rows[0]?.plan || 'libre';
+}
+
+async function enforcePlan(req: any, res: any, checks: {
+  plans?: string[];      // planes que PUEDEN acceder (whitelist)
+  blockedPlans?: string[]; // planes que NO pueden acceder
+}): Promise<boolean> {
+  const plan = await getTenantPlan(req.tenantId);
+  req.tenantPlan = plan;
+  if (checks.plans && !checks.plans.includes(plan)) {
+    res.status(403).json({ error: 'plan_limit', plan, required: checks.plans });
+    return false;
+  }
+  if (checks.blockedPlans && checks.blockedPlans.includes(plan)) {
+    res.status(403).json({ error: 'plan_limit', plan, required: checks.blockedPlans.map(p => p === 'libre' ? 'autonomo' : 'profesional') });
+    return false;
+  }
+  return true;
 }
 
 // ── EMAIL UTILITY (via n8n webhook) ───────────────────
@@ -383,6 +407,7 @@ async function ejecutarAgenteCobros() {
       FROM tenants t
       JOIN settings s ON t.id = s.tenant_id
       WHERE (s.recordatorios_cobros IS NULL OR s.recordatorios_cobros = true)
+        AND (t.plan = 'autonomo' OR t.plan = 'profesional')
     `);
 
     console.log(`[AGENTE COBROS] Tenants encontrados: ${tenants.rows.length}`);
@@ -458,6 +483,7 @@ async function ejecutarAgenteImpuestos(diasAviso = 15) {
       FROM tenants t
       JOIN settings s ON t.id = s.tenant_id
       WHERE (s.recordatorios_impuestos IS NULL OR s.recordatorios_impuestos = true)
+        AND (t.plan = 'autonomo' OR t.plan = 'profesional')
     `);
 
     for (const tenant of tenants.rows) {
@@ -779,6 +805,14 @@ async function startServer() {
   app.post("/api/clients", authMiddleware, async (req: any, res) => {
     const { name, nif, email, phone, address, city, province, zip, notes } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    // Plan Libre: máximo 2 clientes
+    const plan = await getTenantPlan(req.tenantId);
+    if (plan === 'libre') {
+      const count = await pool.query('SELECT COUNT(*) FROM clients WHERE tenant_id = $1', [req.tenantId]);
+      if (parseInt(count.rows[0].count) >= 2) {
+        return res.status(403).json({ error: 'plan_limit', plan, feature: 'clients', limit: 2 });
+      }
+    }
     const existing = await pool.query(
       'SELECT id FROM clients WHERE tenant_id = $1 AND LOWER(name) = LOWER($2)',
       [req.tenantId, name.trim()]
@@ -813,7 +847,11 @@ async function startServer() {
   });
 
   // ── LOGO ──────────────────────────────────────────
-  app.post("/api/settings/logo", authMiddleware, upload.single("logo"), async (req: any, res) => {
+  app.post("/api/settings/logo", authMiddleware, async (req: any, res: any, next: any) => {
+    const plan = await getTenantPlan(req.tenantId);
+    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'logo', required: 'profesional' });
+    next();
+  }, upload.single("logo"), async (req: any, res) => {
     if (!req.file) return res.status(400).json({ error: "No se subió ningún archivo" });
     const logoUrl = `/uploads/${req.file.filename}`;
     await pool.query("UPDATE settings SET logo_url = $1 WHERE tenant_id = $2", [logoUrl, req.tenantId]);
@@ -880,6 +918,21 @@ async function startServer() {
 
   app.post("/api/documents", authMiddleware, async (req: any, res) => {
     const { type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, items, subtotal, iva_rate, iva_amount, total, irpf_rate, irpf_amount, status, is_rectificative, original_invoice_id, fecha_vencimiento, client_email } = req.body;
+
+    // Plan Libre: máximo 5 facturas/abonos por mes
+    if (type === 'invoice' || type === 'abono') {
+      const plan = await getTenantPlan(req.tenantId);
+      if (plan === 'libre') {
+        const count = await pool.query(
+          `SELECT COUNT(*) FROM documents WHERE tenant_id = $1 AND type IN ('invoice','abono')
+           AND created_at >= date_trunc('month', NOW())`,
+          [req.tenantId]
+        );
+        if (parseInt(count.rows[0].count) >= 5) {
+          return res.status(403).json({ error: 'plan_limit', plan, feature: 'documents', limit: 5 });
+        }
+      }
+    }
 
     // Validación obligatoria alineada con VeriFactu / RD 1619/2012
     const errors: string[] = [];
@@ -1040,6 +1093,8 @@ async function startServer() {
 
   // ── EXPORTACIÓN CSV ───────────────────────────────
   app.get("/api/export/incomes", authMiddleware, async (req: any, res) => {
+    const plan = await getTenantPlan(req.tenantId);
+    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'csv', required: 'profesional' });
     const result = await pool.query(
       `SELECT number, date, client_name, client_dni, subtotal, iva_rate, iva_amount, irpf_rate, irpf_amount, total, status
        FROM documents WHERE tenant_id = $1 AND type = 'invoice' ORDER BY date ASC`,
@@ -1069,6 +1124,8 @@ async function startServer() {
   });
 
   app.get("/api/export/expenses", authMiddleware, async (req: any, res) => {
+    const plan = await getTenantPlan(req.tenantId);
+    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'csv', required: 'profesional' });
     const result = await pool.query(
       `SELECT date, description, provider, nif, category, base_amount, iva_rate, iva_amount, amount
        FROM expenses WHERE tenant_id = $1 ORDER BY date ASC`,
@@ -1095,7 +1152,11 @@ async function startServer() {
   });
 
   // ── OCR INTELIGENTE (Gemini Vision) ────────────────
-  app.post("/api/expenses/ocr", authMiddleware, ocrLimiter, (req: any, res: any, next: any) => {
+  app.post("/api/expenses/ocr", authMiddleware, async (req: any, res: any, next: any) => {
+    const plan = await getTenantPlan(req.tenantId);
+    if (plan === 'libre') return res.status(403).json({ error: 'plan_limit', plan, feature: 'ocr', required: 'autonomo' });
+    next();
+  }, ocrLimiter, (req: any, res: any, next: any) => {
     upload.single("ticket")(req, res, (err: any) => {
       if (err instanceof multer.MulterError) {
         return res.status(400).json({ error: `Archivo demasiado grande. Máximo 20MB permitido.` });
@@ -1325,7 +1386,7 @@ Reglas de cálculo:
   // Lista todos los tenants registrados (para detectar cuentas huérfanas/demo)
   // ── PERFIL PROPIO ──────────────────────────────────
   app.get("/api/me", authMiddleware, async (req: any, res) => {
-    const result = await pool.query("SELECT id, email, is_admin FROM tenants WHERE id = $1", [req.tenantId]);
+    const result = await pool.query("SELECT id, email, is_admin, plan FROM tenants WHERE id = $1", [req.tenantId]);
     res.json(result.rows[0] || {});
   });
 
@@ -1340,7 +1401,7 @@ Reglas de cálculo:
   // ── PANEL DE ADMINISTRACIÓN ────────────────────────
   app.get("/api/admin/tenants", authMiddleware, adminMiddleware, async (_req, res) => {
     const result = await pool.query(`
-      SELECT t.id, t.email AS login_email, t.is_admin, s.company_name, s.owner_name,
+      SELECT t.id, t.email AS login_email, t.is_admin, t.plan, s.company_name, s.owner_name,
              s.email AS fiscal_email, s.notification_email, t.created_at,
              (SELECT COUNT(*) FROM documents WHERE tenant_id = t.id) AS total_docs,
              (SELECT COUNT(*) FROM expenses WHERE tenant_id = t.id) AS total_expenses
@@ -1349,6 +1410,20 @@ Reglas de cálculo:
       ORDER BY t.created_at DESC
     `);
     res.json(result.rows);
+  });
+
+  app.patch("/api/admin/tenant/:id/plan", authMiddleware, adminMiddleware, async (req: any, res) => {
+    const targetId = parseInt(req.params.id);
+    const { plan } = req.body;
+    if (!['libre', 'autonomo', 'profesional'].includes(plan)) {
+      return res.status(400).json({ error: 'Plan inválido. Usa: libre, autonomo, profesional' });
+    }
+    const result = await pool.query(
+      'UPDATE tenants SET plan = $1 WHERE id = $2 RETURNING id, email, plan',
+      [plan, targetId]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json(result.rows[0]);
   });
 
   // Impersonar a un usuario (solo admin) — genera JWT temporal de 2h para soporte
