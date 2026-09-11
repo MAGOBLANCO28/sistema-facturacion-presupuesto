@@ -16,12 +16,12 @@ export type Feature =
   | 'logo';       // subir logo empresa (solo Profesional)
 
 const FEATURE_PLANS: Record<Feature, Plan[]> = {
-  documents: ['autonomo', 'profesional'], // libre tiene límite, se gestiona con cuota
-  clients:   ['autonomo', 'profesional'], // libre tiene límite, se gestiona con cuota
+  documents: ['autonomo', 'profesional'],
+  clients:   ['autonomo', 'profesional'],
   ocr:       ['autonomo', 'profesional'],
   agents:    ['autonomo', 'profesional'],
-  csv:       ['profesional'],
-  logo:      ['profesional'],
+  csv:       ['autonomo', 'profesional'],
+  logo:      ['autonomo', 'profesional'],
 };
 
 export const PLAN_LABELS: Record<Plan, string> = {
@@ -35,8 +35,8 @@ export const PLAN_REQUIRED: Record<Feature, Plan> = {
   clients:   'autonomo',
   ocr:       'autonomo',
   agents:    'autonomo',
-  csv:       'profesional',
-  logo:      'profesional',
+  csv:       'autonomo',
+  logo:      'autonomo',
 };
 
 const PlanContext = createContext<PlanContextValue>({

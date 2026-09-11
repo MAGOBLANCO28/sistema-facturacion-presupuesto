@@ -849,7 +849,7 @@ async function startServer() {
   // ── LOGO ──────────────────────────────────────────
   app.post("/api/settings/logo", authMiddleware, async (req: any, res: any, next: any) => {
     const plan = await getTenantPlan(req.tenantId);
-    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'logo', required: 'profesional' });
+    if (plan === 'libre') return res.status(403).json({ error: 'plan_limit', plan, feature: 'logo', required: 'autonomo' });
     next();
   }, upload.single("logo"), async (req: any, res) => {
     if (!req.file) return res.status(400).json({ error: "No se subió ningún archivo" });
@@ -1094,7 +1094,7 @@ async function startServer() {
   // ── EXPORTACIÓN CSV ───────────────────────────────
   app.get("/api/export/incomes", authMiddleware, async (req: any, res) => {
     const plan = await getTenantPlan(req.tenantId);
-    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'csv', required: 'profesional' });
+    if (plan === 'libre') return res.status(403).json({ error: 'plan_limit', plan, feature: 'csv', required: 'autonomo' });
     const result = await pool.query(
       `SELECT number, date, client_name, client_dni, subtotal, iva_rate, iva_amount, irpf_rate, irpf_amount, total, status
        FROM documents WHERE tenant_id = $1 AND type = 'invoice' ORDER BY date ASC`,
@@ -1125,7 +1125,7 @@ async function startServer() {
 
   app.get("/api/export/expenses", authMiddleware, async (req: any, res) => {
     const plan = await getTenantPlan(req.tenantId);
-    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'csv', required: 'profesional' });
+    if (plan === 'libre') return res.status(403).json({ error: 'plan_limit', plan, feature: 'csv', required: 'autonomo' });
     const result = await pool.query(
       `SELECT date, description, provider, nif, category, base_amount, iva_rate, iva_amount, amount
        FROM expenses WHERE tenant_id = $1 ORDER BY date ASC`,

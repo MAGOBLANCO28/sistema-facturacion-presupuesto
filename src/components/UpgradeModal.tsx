@@ -34,12 +34,12 @@ const FEATURE_INFO: Record<Feature, { title: string; description: string; icon: 
   },
   csv: {
     title: 'Exportar libros CSV para tu gestor',
-    description: 'Descarga tu libro de ingresos y gastos en formato CSV, listo para enviárselo a tu gestor o importar en otros programas.',
+    description: 'Descarga tu libro de ingresos y gastos en formato CSV, listo para enviárselo a tu gestor o importar en otros programas. Disponible desde el Plan Autónomo.',
     icon: '📊',
   },
   logo: {
     title: 'Logo en tus facturas',
-    description: 'Añade el logo de tu empresa en las facturas PDF para dar una imagen más profesional a tus clientes.',
+    description: 'Añade el logo de tu empresa en las facturas PDF para dar una imagen más profesional a tus clientes. Disponible desde el Plan Autónomo.',
     icon: '🎨',
   },
 };
@@ -53,14 +53,14 @@ const PLAN_PERKS: Record<Plan, string[]> = {
     'Agente de cobros automático',
     'Alertas fiscales inteligentes',
     'Asistente IA sin restricciones',
+    'Exportar libros CSV para el gestor',
+    'Logo de empresa en facturas PDF',
   ],
   profesional: [
     'Todo lo del Plan Autónomo',
-    'Exportar libros CSV para el gestor',
-    'Logo de empresa en facturas PDF',
-    'Envío de facturas por email (próximamente)',
-    'Facturas recurrentes automáticas (próximamente)',
-    'Acceso para tu gestor/asesor (próximamente)',
+    'Envío de facturas por email directamente desde Faktio',
+    'Facturas recurrentes automáticas para clientes fijos',
+    'Acceso de solo lectura para tu gestor/asesor',
   ],
 };
 
