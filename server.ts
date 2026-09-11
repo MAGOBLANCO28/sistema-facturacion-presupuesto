@@ -163,6 +163,32 @@ async function initDB() {
     ALTER TABLE settings ADD COLUMN IF NOT EXISTS website TEXT;
     ALTER TABLE tenants ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
     ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'libre';
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS gestor_token TEXT;
+    ALTER TABLE settings ADD COLUMN IF NOT EXISTS gestor_token_created_at TIMESTAMPTZ;
+  `);
+
+  // Tabla facturas recurrentes (Plan Profesional)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recurring_invoices (
+      id SERIAL PRIMARY KEY,
+      tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_dni TEXT,
+      client_address TEXT,
+      client_city TEXT,
+      client_zip TEXT,
+      client_province TEXT,
+      client_email TEXT,
+      items JSONB NOT NULL,
+      iva_rate REAL DEFAULT 21,
+      irpf_rate REAL DEFAULT 0,
+      frequency TEXT NOT NULL DEFAULT 'monthly',
+      next_date DATE NOT NULL,
+      active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_recurring_tenant_id ON recurring_invoices(tenant_id);
   `);
 
   // Índices para rendimiento multi-tenant
@@ -555,6 +581,7 @@ function authMiddleware(req: any, res: any, next: any) {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     req.tenantId = decoded.tenantId;
     req.isAdmin = decoded.isAdmin === true;
+    req.isGestor = decoded.isGestor === true;
     next();
   } catch {
     res.status(401).json({ error: "Token inválido" });
@@ -608,6 +635,62 @@ async function inalterabilityMiddleware(req: any, res: any, next: any) {
   next();
 }
 
+// ── AGENTE: GENERAR FACTURAS RECURRENTES ─────────────
+async function ejecutarFacturasRecurrentes() {
+  console.log('[RECURRENTES] 🔄 Generando facturas programadas...');
+  try {
+    const due = await pool.query(`
+      SELECT r.*, t.plan FROM recurring_invoices r
+      JOIN tenants t ON r.tenant_id = t.id
+      WHERE r.active = TRUE
+        AND r.next_date <= CURRENT_DATE
+        AND t.plan = 'profesional'
+    `);
+    for (const r of due.rows) {
+      const items = r.items;
+      const subtotal = items.reduce((s: number, i: any) => s + (i.total || 0), 0);
+      const iva_amount = subtotal * (r.iva_rate / 100);
+      const irpf_amount = subtotal * (r.irpf_rate / 100);
+      const total = subtotal + iva_amount - irpf_amount;
+
+      // Generar número de factura
+      const year = new Date().getFullYear();
+      const lastDoc = await pool.query(
+        `SELECT number FROM documents WHERE tenant_id=$1 AND type='invoice' AND number LIKE $2 ORDER BY id DESC LIMIT 1`,
+        [r.tenant_id, `FAC-${year}-%`]
+      );
+      let seq = 1;
+      if (lastDoc.rows[0]) {
+        const parts = lastDoc.rows[0].number.split('-');
+        seq = (parseInt(parts[2]) || 0) + 1;
+      }
+      const number = `FAC-${year}-${String(seq).padStart(4, '0')}`;
+      const date = new Date().toISOString().split('T')[0];
+
+      await pool.query(
+        `INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, client_email, items, subtotal, iva_rate, iva_amount, irpf_rate, irpf_amount, total, status)
+         VALUES ($1,'invoice',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'Borrador')`,
+        [r.tenant_id, number, date, r.client_name, r.client_dni, r.client_address, r.client_city, r.client_zip, r.client_province, r.client_email, JSON.stringify(items), subtotal, r.iva_rate, iva_amount, r.irpf_rate, irpf_amount, total]
+      );
+
+      // Calcular próxima fecha según frecuencia
+      const nextDate = new Date(r.next_date);
+      if (r.frequency === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
+      else if (r.frequency === 'quarterly') nextDate.setMonth(nextDate.getMonth() + 3);
+      else nextDate.setMonth(nextDate.getMonth() + 1); // monthly por defecto
+
+      await pool.query(
+        'UPDATE recurring_invoices SET next_date=$1 WHERE id=$2',
+        [nextDate.toISOString().split('T')[0], r.id]
+      );
+      console.log(`[RECURRENTES] ✅ Generada ${number} para tenant ${r.tenant_id}`);
+    }
+    console.log(`[RECURRENTES] Procesadas: ${due.rows.length} facturas.`);
+  } catch (err) {
+    console.error('[RECURRENTES] ❌ Error:', err);
+  }
+}
+
 async function startServer() {
   await initDB();
 
@@ -616,6 +699,8 @@ async function startServer() {
   cron.schedule('0 9 * * *', ejecutarAgenteCobros, { timezone: 'Europe/Madrid' });
   // Agente Impuestos: cada día a las 8:00
   cron.schedule('0 8 * * *', () => ejecutarAgenteImpuestos(), { timezone: 'Europe/Madrid' });
+  // Facturas recurrentes: cada día a las 7:00
+  cron.schedule('0 7 * * *', ejecutarFacturasRecurrentes, { timezone: 'Europe/Madrid' });
   console.log('⏰ Cron jobs de agentes IA activados');
 
   const app = express();
@@ -1385,6 +1470,183 @@ Reglas de cálculo:
   // ── ADMIN: GESTIÓN DE CUENTAS ────────────────────────
   // Lista todos los tenants registrados (para detectar cuentas huérfanas/demo)
   // ── PERFIL PROPIO ──────────────────────────────────
+  // ── ENVÍO DE FACTURA POR EMAIL (PLAN PROFESIONAL) ──────────
+  app.post("/api/documents/:id/send-email", authMiddleware, async (req: any, res) => {
+    const plan = await getTenantPlan(req.tenantId);
+    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'send_email', required: 'profesional' });
+
+    const docId = parseInt(req.params.id);
+    const { recipient_email } = req.body;
+    if (!recipient_email?.trim()) return res.status(400).json({ error: 'Se requiere el email del destinatario' });
+
+    const [docResult, settingsResult] = await Promise.all([
+      pool.query('SELECT * FROM documents WHERE id = $1 AND tenant_id = $2', [docId, req.tenantId]),
+      pool.query('SELECT * FROM settings WHERE tenant_id = $1', [req.tenantId]),
+    ]);
+    const doc = docResult.rows[0];
+    if (!doc) return res.status(404).json({ error: 'Documento no encontrado' });
+    const s = settingsResult.rows[0] || {};
+
+    const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n || 0);
+    const docTitle = doc.type === 'quote' ? 'Presupuesto' : doc.type === 'abono' ? 'Nota de Crédito' : 'Factura';
+    const themeColor = doc.type === 'quote' ? '#d97706' : doc.type === 'abono' ? '#dc2626' : '#7c3aed';
+    const items: Array<{ concept: string; quantity: number; price: number; total: number }> = doc.items || [];
+    const hasIrpf = (doc.irpf_rate || 0) > 0;
+
+    const itemsHtml = items.map(it => `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;color:#334155">${it.concept}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:center;color:#64748b">${it.quantity}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:right;color:#64748b">${fmt(it.price)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;color:#1e293b">${fmt(it.total)}</td>
+      </tr>`).join('');
+
+    const html = `
+<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;color:#1e293b">
+  <div style="background:${themeColor};padding:28px 32px;border-radius:12px 12px 0 0">
+    <h1 style="color:#fff;margin:0;font-size:22px;font-weight:900">${docTitle.toUpperCase()} ${doc.number}</h1>
+    <p style="color:rgba(255,255,255,0.8);margin:4px 0 0;font-size:13px">Fecha: ${doc.date}</p>
+  </div>
+  <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:28px 32px;border-radius:0 0 12px 12px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px">
+      <div>
+        <p style="font-size:10px;font-weight:900;text-transform:uppercase;color:#94a3b8;letter-spacing:0.1em;margin:0 0 4px">Emisor</p>
+        <p style="font-weight:900;color:#1e293b;margin:0">${s.company_name || ''}</p>
+        ${s.cif ? `<p style="color:#64748b;margin:2px 0;font-size:13px">NIF/CIF: ${s.cif}</p>` : ''}
+        ${s.address ? `<p style="color:#64748b;margin:2px 0;font-size:13px">${s.address}${s.city ? `, ${s.city}` : ''}</p>` : ''}
+        ${s.email ? `<p style="color:#64748b;margin:2px 0;font-size:13px">${s.email}</p>` : ''}
+      </div>
+      <div style="text-align:right">
+        <p style="font-size:10px;font-weight:900;text-transform:uppercase;color:#94a3b8;letter-spacing:0.1em;margin:0 0 4px">Cliente</p>
+        <p style="font-weight:900;color:#1e293b;margin:0">${doc.client_name}</p>
+        ${doc.client_dni ? `<p style="color:#64748b;margin:2px 0;font-size:13px">NIF/CIF: ${doc.client_dni}</p>` : ''}
+        ${doc.client_address ? `<p style="color:#64748b;margin:2px 0;font-size:13px">${doc.client_address}${doc.client_city ? `, ${doc.client_city}` : ''}</p>` : ''}
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+      <thead>
+        <tr style="background:#f8fafc">
+          <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:900;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0">Concepto</th>
+          <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:900;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0">Cant.</th>
+          <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:900;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0">Precio</th>
+          <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:900;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0">Total</th>
+        </tr>
+      </thead>
+      <tbody>${itemsHtml}</tbody>
+    </table>
+    <div style="border-top:2px solid #e2e8f0;padding-top:16px;max-width:280px;margin-left:auto">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="color:#64748b;font-size:13px">Base imponible</span>
+        <span style="font-weight:700">${fmt(doc.subtotal)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="color:#64748b;font-size:13px">IVA (${doc.iva_rate}%)</span>
+        <span style="font-weight:700">${fmt(doc.iva_amount)}</span>
+      </div>
+      ${hasIrpf ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="color:#64748b;font-size:13px">IRPF (-${doc.irpf_rate}%)</span>
+        <span style="font-weight:700;color:#dc2626">-${fmt(doc.irpf_amount)}</span>
+      </div>` : ''}
+      <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:2px solid #e2e8f0">
+        <span style="font-weight:900;font-size:16px">TOTAL</span>
+        <span style="font-weight:900;font-size:16px;color:${themeColor}">${fmt(Math.abs(doc.total))}</span>
+      </div>
+    </div>
+    <div style="margin-top:24px;padding:16px;background:#f8fafc;border-radius:8px;font-size:12px;color:#64748b">
+      <p style="margin:0">Este documento ha sido generado y enviado mediante <strong>Faktio</strong> — Sistema de Facturación.</p>
+      ${s.email ? `<p style="margin:4px 0 0">Para cualquier consulta, contacte con ${s.company_name || 'el emisor'} en ${s.email}.</p>` : ''}
+    </div>
+  </div>
+</div>`;
+
+    const subject = `${docTitle} ${doc.number} — ${s.company_name || 'Faktio'}`;
+    const sent = await enviarEmail(recipient_email.trim(), subject, html);
+    if (sent) {
+      res.json({ success: true, message: `${docTitle} enviada a ${recipient_email}` });
+    } else {
+      res.status(500).json({ error: 'No se pudo enviar el email. Inténtalo de nuevo.' });
+    }
+  });
+
+  // ── FACTURAS RECURRENTES (PLAN PROFESIONAL) ──────────────
+  app.get("/api/recurring", authMiddleware, async (req: any, res) => {
+    const plan = await getTenantPlan(req.tenantId);
+    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'recurring', required: 'profesional' });
+    const result = await pool.query(
+      'SELECT * FROM recurring_invoices WHERE tenant_id = $1 ORDER BY created_at DESC',
+      [req.tenantId]
+    );
+    res.json(result.rows);
+  });
+
+  app.post("/api/recurring", authMiddleware, async (req: any, res) => {
+    const plan = await getTenantPlan(req.tenantId);
+    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'recurring', required: 'profesional' });
+    const { name, client_name, client_dni, client_address, client_city, client_zip, client_province, client_email, items, iva_rate, irpf_rate, frequency, next_date } = req.body;
+    if (!name?.trim() || !client_name?.trim() || !items?.length || !next_date) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios: nombre, cliente, conceptos y próxima fecha' });
+    }
+    const result = await pool.query(
+      `INSERT INTO recurring_invoices (tenant_id, name, client_name, client_dni, client_address, client_city, client_zip, client_province, client_email, items, iva_rate, irpf_rate, frequency, next_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+      [req.tenantId, name.trim(), client_name.trim(), client_dni||null, client_address||null, client_city||null, client_zip||null, client_province||null, client_email||null, JSON.stringify(items), iva_rate||21, irpf_rate||0, frequency||'monthly', next_date]
+    );
+    res.json(result.rows[0]);
+  });
+
+  app.put("/api/recurring/:id", authMiddleware, async (req: any, res) => {
+    const plan = await getTenantPlan(req.tenantId);
+    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit' });
+    const { name, client_name, client_dni, client_address, client_city, client_zip, client_province, client_email, items, iva_rate, irpf_rate, frequency, next_date, active } = req.body;
+    const result = await pool.query(
+      `UPDATE recurring_invoices SET name=$1, client_name=$2, client_dni=$3, client_address=$4, client_city=$5, client_zip=$6, client_province=$7, client_email=$8, items=$9, iva_rate=$10, irpf_rate=$11, frequency=$12, next_date=$13, active=$14
+       WHERE id=$15 AND tenant_id=$16 RETURNING *`,
+      [name, client_name, client_dni||null, client_address||null, client_city||null, client_zip||null, client_province||null, client_email||null, JSON.stringify(items), iva_rate||21, irpf_rate||0, frequency||'monthly', next_date, active !== false, req.params.id, req.tenantId]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'No encontrada' });
+    res.json(result.rows[0]);
+  });
+
+  app.delete("/api/recurring/:id", authMiddleware, async (req: any, res) => {
+    await pool.query('DELETE FROM recurring_invoices WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId]);
+    res.json({ success: true });
+  });
+
+  // ── ACCESO GESTOR (PLAN PROFESIONAL) ───────────────────────
+  app.post("/api/settings/gestor-token", authMiddleware, async (req: any, res) => {
+    const plan = await getTenantPlan(req.tenantId);
+    if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'gestor', required: 'profesional' });
+    const token = jwt.sign({ tenantId: req.tenantId, isGestor: true }, JWT_SECRET, { expiresIn: '365d' });
+    await pool.query(
+      'UPDATE settings SET gestor_token=$1, gestor_token_created_at=NOW() WHERE tenant_id=$2',
+      [token, req.tenantId]
+    );
+    res.json({ token });
+  });
+
+  app.delete("/api/settings/gestor-token", authMiddleware, async (req: any, res) => {
+    await pool.query('UPDATE settings SET gestor_token=NULL, gestor_token_created_at=NULL WHERE tenant_id=$1', [req.tenantId]);
+    res.json({ success: true });
+  });
+
+  // Login gestor mediante token (sin auth middleware — es el propio token quien autentica)
+  app.get("/api/gestor/verify/:token", async (req, res) => {
+    try {
+      const decoded = jwt.verify(req.params.token, JWT_SECRET) as any;
+      if (!decoded.isGestor) return res.status(403).json({ error: 'Token inválido' });
+      const result = await pool.query(
+        'SELECT gestor_token FROM settings WHERE tenant_id=$1', [decoded.tenantId]
+      );
+      if (!result.rows[0] || result.rows[0].gestor_token !== req.params.token) {
+        return res.status(403).json({ error: 'Token revocado o inválido' });
+      }
+      // Devuelve el token directamente para usarlo como JWT de solo lectura
+      res.json({ token: req.params.token, tenantId: decoded.tenantId });
+    } catch {
+      res.status(403).json({ error: 'Token expirado o inválido' });
+    }
+  });
+
   app.get("/api/me", authMiddleware, async (req: any, res) => {
     const result = await pool.query("SELECT id, email, is_admin, plan FROM tenants WHERE id = $1", [req.tenantId]);
     res.json(result.rows[0] || {});

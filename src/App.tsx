@@ -11,7 +11,9 @@ import {
   MinusCircle,
   Users,
   Shield,
-  UserCheck
+  UserCheck,
+  RefreshCw,
+  Eye,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DocumentType, DocumentData, CompanySettings } from './types';
@@ -26,6 +28,7 @@ import BudgetsView from './components/BudgetsView';
 import AbonosView from './components/AbonosView';
 import ClientsView from './components/ClientsView';
 import AdminView from './components/AdminView';
+import RecurringView from './components/RecurringView';
 import AssistantChat from './components/AssistantChat';
 import { PlanProvider, Plan } from './context/PlanContext';
 import Header from './components/common/Header';
@@ -48,7 +51,7 @@ const API = (path: string, options?: RequestInit) => {
 
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [view, setView] = useState<'dashboard' | 'editor' | 'history' | 'settings' | 'preview' | 'expenses' | 'budgets' | 'abonos' | 'clients' | 'admin'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'editor' | 'history' | 'settings' | 'preview' | 'expenses' | 'budgets' | 'abonos' | 'clients' | 'admin' | 'recurring'>('dashboard');
   const [docType, setDocType] = useState<DocumentType>('invoice');
   const [selectedDoc, setSelectedDoc] = useState<DocumentData | null>(null);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -59,6 +62,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [plan, setPlan] = useState<Plan>('libre');
   const [impersonating, setImpersonating] = useState<string | null>(null);
+  const [isGestor, setIsGestor] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -78,6 +82,25 @@ export default function App() {
   useEffect(() => {
     if (token) { fetchSettings(); checkFiscalAlerts(); fetchMe(); }
   }, [token]);
+
+  // Detect ?g=TOKEN in URL for gestor read-only access
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gestorToken = params.get('g');
+    if (!gestorToken) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/gestor/verify/${gestorToken}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+        setIsGestor(true);
+        setPlan(data.plan || 'profesional');
+        window.history.replaceState({}, '', '/');
+      } catch {}
+    })();
+  }, []);
 
   const fetchMe = useCallback(async () => {
     try {
@@ -123,6 +146,7 @@ export default function App() {
     setIsAdmin(false);
     setPlan('libre');
     setImpersonating(null);
+    setIsGestor(false);
     setView('dashboard');
   };
 
@@ -242,6 +266,7 @@ export default function App() {
           <SidebarItem icon={<MinusCircle size={20} />} label="Abonos" active={view === 'abonos'} onClick={() => setView('abonos')} activeColor={RED} />
           <div className="py-2"><div className="h-px bg-white/5 w-full" /></div>
           <SidebarItem icon={<Users size={20} />} label="Clientes" active={view === 'clients'} onClick={() => setView('clients')} activeColor="#6366f1" />
+          <SidebarItem icon={<RefreshCw size={20} />} label="Recurrentes" active={view === 'recurring'} onClick={() => setView('recurring')} activeColor="#a855f7" badge={plan === 'profesional' ? undefined : '⭐'} />
           <SidebarItem icon={<SettingsIcon size={20} />} label="Ajustes" active={view === 'settings'} onClick={() => setView('settings')} />
           {isAdmin && (
             <SidebarItem icon={<Shield size={20} />} label="Administración" active={view === 'admin'} onClick={() => setView('admin')} activeColor="#f43f5e" />
@@ -289,6 +314,22 @@ export default function App() {
               className="px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all shrink-0"
             >
               Volver a mi cuenta
+            </button>
+          </div>
+        )}
+
+        {/* Banner de acceso gestor (solo lectura) */}
+        {isGestor && (
+          <div className="bg-emerald-800/80 backdrop-blur-sm border-b border-emerald-600/30 px-4 py-2.5 flex items-center justify-between gap-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <Eye size={14} className="text-emerald-300 shrink-0" />
+              <p className="text-[11px] font-black text-white">Modo <span className="text-emerald-300">Solo Lectura</span> — Acceso de gestor/asesor</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-emerald-200 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all shrink-0"
+            >
+              Salir
             </button>
           </div>
         )}
@@ -367,6 +408,12 @@ export default function App() {
               </motion.div>
             )}
 
+            {view === 'recurring' && (
+              <motion.div key="recurring" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+                <RecurringView />
+              </motion.div>
+            )}
+
             {view === 'admin' && isAdmin && (
               <motion.div key="admin" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <AdminView onImpersonate={handleImpersonate} />
@@ -413,12 +460,13 @@ export default function App() {
   );
 }
 
-function SidebarItem({ icon, label, active, onClick, activeColor }: {
+function SidebarItem({ icon, label, active, onClick, activeColor, badge }: {
   icon: React.ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
   activeColor?: string;
+  badge?: string;
 }) {
   return (
     <button
@@ -427,7 +475,8 @@ function SidebarItem({ icon, label, active, onClick, activeColor }: {
       style={active && activeColor ? { color: activeColor } : {}}
     >
       <span>{icon}</span>
-      <span className="text-sm tracking-tight">{label}</span>
+      <span className="text-sm tracking-tight flex-1 text-left">{label}</span>
+      {badge && <span className="text-[10px]">{badge}</span>}
     </button>
   );
 }

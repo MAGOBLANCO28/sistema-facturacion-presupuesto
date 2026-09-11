@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DocumentData, CompanySettings } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
-import { Zap, Printer, FileDown } from 'lucide-react';
+import { Zap, Printer, FileDown, Mail, X, Send, Lock } from 'lucide-react';
 import { usePlan } from '../context/PlanContext';
+import UpgradeModal from './UpgradeModal';
+import { PLAN_REQUIRED } from '../context/PlanContext';
 
 interface Props {
   doc: DocumentData;
@@ -11,8 +13,13 @@ interface Props {
 }
 
 export default function DocumentPreview({ doc, settings, onConvert }: Props) {
-  const { plan } = usePlan();
+  const { plan, canUse } = usePlan();
   const showWatermark = plan === 'libre';
+  const [emailModal, setEmailModal] = useState(false);
+  const [upgradeModal, setUpgradeModal] = useState(false);
+  const [emailTo, setEmailTo] = useState((doc as any).client_email || '');
+  const [sending, setSending] = useState(false);
+  const [emailResult, setEmailResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const isBudget = doc.type === 'quote';
   const isAbono  = doc.type === 'abono';
 
@@ -23,6 +30,26 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
   const fmt = (n: number) =>
     new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
 
+  const handleSendEmail = async () => {
+    if (!emailTo.trim()) return;
+    setSending(true);
+    setEmailResult(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/documents/${doc.id}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ recipient_email: emailTo }),
+      });
+      const data = await res.json();
+      setEmailResult(res.ok ? { ok: true, msg: data.message } : { ok: false, msg: data.error || 'Error al enviar' });
+    } catch {
+      setEmailResult({ ok: false, msg: 'Error de conexión' });
+    } finally {
+      setSending(false);
+    }
+  };
+
   const docTitle   = isBudget ? 'PRESUPUESTO' : isAbono ? 'NOTA DE CRÉDITO' : 'FACTURA';
   const irpfRate   = doc.irpf_rate || 0;
   const irpfAmount = Math.abs(doc.irpf_amount || 0);
@@ -31,6 +58,7 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
   const aCobrar    = hasIrpf ? totalBruto - irpfAmount : totalBruto;
 
   return (
+    <>
     <div className="space-y-8 pb-12">
       {/* Barra de acciones */}
       <div className="flex items-center justify-between print:hidden">
@@ -39,6 +67,18 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
           <h3 className="text-xl font-black text-white tracking-tighter">Documento {doc.number}</h3>
         </div>
         <div className="flex items-center gap-4">
+          {/* Botón Enviar por email */}
+          <button
+            onClick={() => canUse('send_email') ? setEmailModal(true) : setUpgradeModal(true)}
+            className={`flex items-center gap-2 px-4 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border ${
+              canUse('send_email')
+                ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20'
+                : 'bg-white/3 border-white/5 text-slate-600 hover:bg-white/8 hover:text-slate-400'
+            }`}
+          >
+            {canUse('send_email') ? <Mail size={14} /> : <Lock size={14} />}
+            Enviar email
+          </button>
           <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-4 bg-white/5 border border-white/5 rounded-2xl text-slate-400 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 hover:text-white transition-all">
             <Printer size={16} /> Imprimir
           </button>
@@ -314,5 +354,60 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
 
       </div>
     </div>
+
+    {/* Modales (fuera del doc para evitar clipping) */}
+    {/* Modal envío por email */}
+    {emailModal && (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Mail size={16} className="text-indigo-400" />
+              <h3 className="font-black text-white text-sm">Enviar factura por email</h3>
+            </div>
+            <button onClick={() => { setEmailModal(false); setEmailResult(null); }} className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all">
+              <X size={14} />
+            </button>
+          </div>
+          {emailResult ? (
+            <div className={`px-4 py-3 rounded-2xl text-[11px] font-bold ${emailResult.ok ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300' : 'bg-rose-500/10 border border-rose-500/20 text-rose-300'}`}>
+              {emailResult.msg}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Email del destinatario</label>
+                <input
+                  type="email"
+                  value={emailTo}
+                  onChange={e => setEmailTo(e.target.value)}
+                  placeholder="cliente@empresa.com"
+                  className="w-full px-3.5 py-2.5 bg-white/5 border border-white/8 rounded-xl text-[12px] font-bold text-slate-200 placeholder:text-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/40 transition-all"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500 font-bold">Se enviará la factura <strong className="text-slate-300">{doc.number}</strong> a este email con todos los detalles y el importe.</p>
+              <button
+                onClick={handleSendEmail}
+                disabled={sending || !emailTo.trim()}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all"
+              >
+                {sending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={13} />}
+                {sending ? 'Enviando…' : 'Enviar'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Modal upgrade */}
+    <UpgradeModal
+      open={upgradeModal}
+      onClose={() => setUpgradeModal(false)}
+      feature="send_email"
+      currentPlan={plan}
+      requiredPlan={PLAN_REQUIRED['send_email']}
+    />
+    </>
   );
 }

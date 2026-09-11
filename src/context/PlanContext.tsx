@@ -12,16 +12,22 @@ export type Feature =
   | 'clients'     // añadir clientes (Autónomo+, con límite en Libre)
   | 'ocr'         // escanear tickets con IA
   | 'agents'      // agentes cobros/impuestos
-  | 'csv'         // exportar CSV (solo Profesional)
-  | 'logo';       // subir logo empresa (solo Profesional)
+  | 'csv'         // exportar CSV (Autónomo+)
+  | 'logo'        // subir logo empresa (Autónomo+)
+  | 'send_email'  // enviar facturas por email (Profesional)
+  | 'recurring'   // facturas recurrentes (Profesional)
+  | 'gestor';     // acceso gestor de solo lectura (Profesional)
 
 const FEATURE_PLANS: Record<Feature, Plan[]> = {
-  documents: ['autonomo', 'profesional'],
-  clients:   ['autonomo', 'profesional'],
-  ocr:       ['autonomo', 'profesional'],
-  agents:    ['autonomo', 'profesional'],
-  csv:       ['autonomo', 'profesional'],
-  logo:      ['autonomo', 'profesional'],
+  documents:  ['autonomo', 'profesional'],
+  clients:    ['autonomo', 'profesional'],
+  ocr:        ['autonomo', 'profesional'],
+  agents:     ['autonomo', 'profesional'],
+  csv:        ['autonomo', 'profesional'],
+  logo:       ['autonomo', 'profesional'],
+  send_email: ['profesional'],
+  recurring:  ['profesional'],
+  gestor:     ['profesional'],
 };
 
 export const PLAN_LABELS: Record<Plan, string> = {
@@ -31,12 +37,15 @@ export const PLAN_LABELS: Record<Plan, string> = {
 };
 
 export const PLAN_REQUIRED: Record<Feature, Plan> = {
-  documents: 'autonomo',
-  clients:   'autonomo',
-  ocr:       'autonomo',
-  agents:    'autonomo',
-  csv:       'autonomo',
-  logo:      'autonomo',
+  documents:  'autonomo',
+  clients:    'autonomo',
+  ocr:        'autonomo',
+  agents:     'autonomo',
+  csv:        'autonomo',
+  logo:       'autonomo',
+  send_email: 'profesional',
+  recurring:  'profesional',
+  gestor:     'profesional',
 };
 
 const PlanContext = createContext<PlanContextValue>({

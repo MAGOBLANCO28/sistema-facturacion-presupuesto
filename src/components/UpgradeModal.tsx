@@ -42,6 +42,21 @@ const FEATURE_INFO: Record<Feature, { title: string; description: string; icon: 
     description: 'Añade el logo de tu empresa en las facturas PDF para dar una imagen más profesional a tus clientes. Disponible desde el Plan Autónomo.',
     icon: '🎨',
   },
+  send_email: {
+    title: 'Enviar facturas por email',
+    description: 'Envía tus facturas directamente desde Faktio al email de tu cliente, con todos los detalles y el importe. Sin descargar nada, sin intermediarios.',
+    icon: '📧',
+  },
+  recurring: {
+    title: 'Facturas recurrentes automáticas',
+    description: 'Configura una plantilla para clientes que pagan mensualmente. Faktio genera y registra la factura automáticamente en la fecha que elijas.',
+    icon: '🔄',
+  },
+  gestor: {
+    title: 'Acceso de solo lectura para tu gestor',
+    description: 'Genera un enlace seguro para que tu asesor/gestor pueda ver todos tus datos en tiempo real para hacer las declaraciones. Sin exportar nada.',
+    icon: '👤',
+  },
 };
 
 const PLAN_PERKS: Record<Plan, string[]> = {
@@ -58,6 +73,9 @@ const PLAN_PERKS: Record<Plan, string[]> = {
   ],
   profesional: [
     'Todo lo incluido en el Plan Autónomo',
+    'Envío de facturas por email directamente desde Faktio',
+    'Facturas recurrentes automáticas para clientes fijos',
+    'Enlace de acceso de solo lectura para tu gestor/asesor',
   ],
 };
 

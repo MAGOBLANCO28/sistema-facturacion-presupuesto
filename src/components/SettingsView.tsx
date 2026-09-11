@@ -11,12 +11,15 @@ import {
   Globe,
   CheckCircle2,
   FileText,
-  ExternalLink
+  ExternalLink,
+  Copy,
+  Trash2 as TrashIcon,
+  Link,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CompanySettings } from '../types';
 import Card from './common/Card';
-import { usePlan } from '../context/PlanContext';
+import { usePlan, Plan, Feature } from '../context/PlanContext';
 import UpgradeModal from './UpgradeModal';
 import { PLAN_REQUIRED } from '../context/PlanContext';
 
@@ -40,7 +43,7 @@ const authFetch = (url: string, options?: RequestInit) => {
 export default function SettingsView({ settings, onUpdate }: Props) {
   const { plan, canUse } = usePlan();
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'gestor'>('profile');
   const [formData, setFormData] = useState<CompanySettings>({
     company_name: '',
     owner_name: '',
@@ -167,6 +170,7 @@ export default function SettingsView({ settings, onUpdate }: Props) {
            <TabButton active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} label="Empresa" />
            <TabButton active={activeTab === 'security'} onClick={() => setActiveTab('security')} label="Seguridad" />
            <TabButton active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} label="Alertas IA" />
+           <TabButton active={activeTab === 'gestor'} onClick={() => setActiveTab('gestor')} label="Gestor" />
         </div>
       </div>
 
@@ -351,7 +355,7 @@ export default function SettingsView({ settings, onUpdate }: Props) {
 
             </div>
               {/* ── Legal y Privacidad ── */}
-              <Card className="p-4 space-y-3" accent="slate">
+              <Card className="p-4 space-y-3" accent="none">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-slate-500/10 text-slate-400 rounded-xl flex items-center justify-center border border-slate-500/20"><FileText size={14} /></div>
                   <div>
@@ -520,6 +524,8 @@ export default function SettingsView({ settings, onUpdate }: Props) {
               {saved ? '✅ Guardado' : 'Guardar Configuración de Alertas'}
             </button>
           </motion.div>
+        ) : activeTab === 'gestor' ? (
+          <GestorTab key="gestor" plan={plan} canUse={canUse} />
         ) : null}
       </AnimatePresence>
     </div>
@@ -585,4 +591,100 @@ function PinInput({ label, value, onChange }: { label: string, value: string, on
          />
       </div>
    );
+}
+
+// ── Pestaña Acceso Gestor ─────────────────────────────────
+function GestorTab({ plan, canUse }: { plan: Plan; canUse: (f: Feature) => boolean }) {
+  const [token, setToken] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const [upgradeModal, setUpgradeModal] = React.useState(false);
+
+  const gestorUrl = token ? `${window.location.origin}/?g=${token}` : null;
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    try {
+      const t = localStorage.getItem('token');
+      const res = await fetch('/api/settings/gestor-token', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      const data = await res.json();
+      if (res.ok) setToken(data.token);
+    } catch {}
+    finally { setLoading(false); }
+  };
+
+  const handleRevoke = async () => {
+    if (!confirm('¿Revocar el acceso del gestor? El enlace actual dejará de funcionar.')) return;
+    const t = localStorage.getItem('token');
+    await fetch('/api/settings/gestor-token', { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } });
+    setToken(null);
+  };
+
+  const handleCopy = () => {
+    if (!gestorUrl) return;
+    navigator.clipboard.writeText(gestorUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!canUse('gestor')) {
+    return (
+      <motion.div key="gestor-locked" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+        <div className="bg-white/3 border border-white/8 rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-4">
+          <Lock size={32} className="text-slate-600" />
+          <div>
+            <p className="font-black text-white text-base">Acceso Gestor — Plan Profesional</p>
+            <p className="text-slate-500 text-sm font-bold mt-1 max-w-xs mx-auto">
+              Genera un enlace seguro para que tu asesor/gestor pueda consultar todos tus datos en tiempo real.
+            </p>
+          </div>
+          <button onClick={() => setUpgradeModal(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all">
+            Ver Plan Profesional
+          </button>
+        </div>
+        <UpgradeModal open={upgradeModal} onClose={() => setUpgradeModal(false)} feature="gestor" currentPlan={plan} requiredPlan={PLAN_REQUIRED['gestor']} />
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div key="gestor" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+      <div className="bg-purple-500/5 border border-purple-500/15 rounded-2xl px-4 py-3 space-y-1">
+        <p className="text-[11px] font-black text-purple-300">Acceso de solo lectura para tu gestor</p>
+        <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+          Genera un enlace único y compártelo con tu asesor. Podrá ver tus facturas, gastos y dashboard sin poder modificar nada. Válido 1 año y revocable en cualquier momento.
+        </p>
+      </div>
+
+      {gestorUrl ? (
+        <div className="space-y-3">
+          <div className="bg-white/3 border border-emerald-500/20 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Link size={11} className="text-emerald-400" />
+              <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Enlace activo</p>
+            </div>
+            <p className="text-[10px] text-slate-400 font-mono break-all leading-relaxed">{gestorUrl}</p>
+            <div className="flex gap-2 pt-1">
+              <button onClick={handleCopy} className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all">
+                <Copy size={10} /> {copied ? '¡Copiado!' : 'Copiar enlace'}
+              </button>
+              <button onClick={handleRevoke} className="flex items-center gap-1.5 px-3 py-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all">
+                <TrashIcon size={10} /> Revocar acceso
+              </button>
+            </div>
+          </div>
+          <p className="text-[9px] text-slate-600 font-bold px-1">Tu gestor puede ver todos los datos en modo solo lectura — no puede crear, editar ni eliminar.</p>
+        </div>
+      ) : (
+        <button onClick={handleGenerate} disabled={loading}
+          className="w-full flex items-center justify-center gap-2 py-4 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all">
+          {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Link size={14} />}
+          {loading ? 'Generando…' : 'Generar enlace de acceso para el gestor'}
+        </button>
+      )}
+    </motion.div>
+  );
 }
