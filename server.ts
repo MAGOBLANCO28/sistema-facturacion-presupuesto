@@ -1641,23 +1641,12 @@ Reglas de cálculo:
   </div>
 </div>`;
 
-    // Generar PDF
-    const pdfBuffer = await generateInvoicePDF(doc, s);
-    const fileName = `${docTitle.replace(/ /g, '_')}_${doc.number}.pdf`;
     const subject = `${docTitle} ${doc.number} de ${s.company_name || ''}`;
-
-    try {
-      await smtpTransporter.sendMail({
-        from: process.env.SMTP_FROM || process.env.SMTP_USER,
-        to: recipient_email.trim(),
-        subject,
-        html: emailHtml,
-        attachments: [{ filename: fileName, content: pdfBuffer, contentType: 'application/pdf' }],
-      });
+    const sent = await enviarEmail(recipient_email.trim(), subject, emailHtml);
+    if (sent) {
       res.json({ success: true, message: `${docTitle} enviada a ${recipient_email}` });
-    } catch (err: any) {
-      console.error('[SEND-EMAIL]', err?.message);
-      res.status(500).json({ error: 'No se pudo enviar el email. Revisa la configuración SMTP.' });
+    } else {
+      res.status(500).json({ error: 'No se pudo enviar el email. Inténtalo de nuevo.' });
     }
   });
 

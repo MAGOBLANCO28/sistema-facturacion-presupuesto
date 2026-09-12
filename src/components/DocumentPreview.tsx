@@ -366,7 +366,7 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
               <Mail size={16} className="text-indigo-400" />
               <div>
                 <h3 className="font-black text-white text-sm leading-none">Enviar por email</h3>
-                <p className="text-[9px] text-slate-500 font-bold mt-0.5">La factura llegará como PDF adjunto</p>
+                <p className="text-[9px] text-slate-500 font-bold mt-0.5">El cliente recibirá los detalles de la factura</p>
               </div>
             </div>
             <button onClick={() => { setEmailModal(false); setEmailResult(null); }} className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all">
@@ -405,7 +405,7 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
                 className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all"
               >
                 {sending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={13} />}
-                {sending ? 'Generando PDF y enviando…' : `Enviar ${doc.number} con PDF adjunto`}
+                {sending ? 'Enviando…' : `Enviar ${doc.number}`}
               </button>
             </>
           )}
