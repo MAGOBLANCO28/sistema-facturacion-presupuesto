@@ -51,6 +51,31 @@ export default function AdminView({ onImpersonate }: AdminViewProps) {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [impersonating, setImpersonating] = useState<number | null>(null);
   const [changingPlan, setChangingPlan] = useState<number | null>(null);
+  const [myPlan, setMyPlan] = useState<Plan>('libre');
+  const [switchingMyPlan, setSwitchingMyPlan] = useState(false);
+
+  const fetchMyPlan = useCallback(async () => {
+    try {
+      const res = await authFetch('/api/me');
+      const data = await res.json();
+      if (data.plan) setMyPlan(data.plan as Plan);
+    } catch {}
+  }, []);
+
+  const handleSwitchMyPlan = async (plan: Plan) => {
+    setSwitchingMyPlan(true);
+    try {
+      const res = await authFetch('/api/me/plan', {
+        method: 'PATCH',
+        body: JSON.stringify({ plan }),
+      });
+      if (res.ok) {
+        setMyPlan(plan);
+        window.dispatchEvent(new CustomEvent('faktio:plan-changed', { detail: plan }));
+      }
+    } catch {}
+    finally { setSwitchingMyPlan(false); }
+  };
 
   const fetchTenants = useCallback(async () => {
     setLoading(true);
@@ -65,7 +90,7 @@ export default function AdminView({ onImpersonate }: AdminViewProps) {
     }
   }, []);
 
-  useEffect(() => { fetchTenants(); }, [fetchTenants]);
+  useEffect(() => { fetchTenants(); fetchMyPlan(); }, [fetchTenants, fetchMyPlan]);
 
   const handleImpersonate = async (tenant: Tenant) => {
     setImpersonating(tenant.id);
@@ -134,6 +159,35 @@ export default function AdminView({ onImpersonate }: AdminViewProps) {
         <p className="text-[10px] text-rose-300/70 font-bold">
           Zona restringida. Al entrar como un usuario verás su cuenta durante 2 horas. No modifiques datos sin su consentimiento.
         </p>
+      </div>
+
+      {/* Selector de plan propio para pruebas */}
+      <div className="bg-amber-500/5 border border-amber-500/15 rounded-2xl px-4 py-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <Check size={12} className="text-amber-400 shrink-0" />
+          <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Modo de prueba — Mi plan actual</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {(['libre', 'autonomo', 'profesional'] as Plan[]).map(p => (
+            <button
+              key={p}
+              onClick={() => handleSwitchMyPlan(p)}
+              disabled={switchingMyPlan || myPlan === p}
+              className={`px-3 py-1.5 rounded-xl border font-black text-[9px] uppercase tracking-widest transition-all ${
+                myPlan === p
+                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 cursor-default'
+                  : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-40'
+              }`}
+            >
+              {switchingMyPlan && myPlan !== p ? (
+                <span className="inline-block w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                PLAN_LABELS[p]
+              )}
+            </button>
+          ))}
+          <span className="text-[9px] text-slate-600 font-bold">Cambia tu propio plan para probar la UI sin impersonar</span>
+        </div>
       </div>
 
       {loading ? (

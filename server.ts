@@ -1652,6 +1652,15 @@ Reglas de cálculo:
     res.json(result.rows[0] || {});
   });
 
+  app.patch("/api/me/plan", authMiddleware, async (req: any, res) => {
+    const { plan } = req.body;
+    if (!['libre', 'autonomo', 'profesional'].includes(plan)) {
+      return res.status(400).json({ error: 'Plan inválido' });
+    }
+    await pool.query('UPDATE tenants SET plan = $1 WHERE id = $2', [plan, req.tenantId]);
+    res.json({ ok: true, plan });
+  });
+
   // Bootstrap de administrador — solo funciona si aún no existe ningún admin
   app.post("/api/admin/bootstrap", authMiddleware, async (req: any, res) => {
     const existing = await pool.query("SELECT id FROM tenants WHERE is_admin = TRUE LIMIT 1");

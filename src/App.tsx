@@ -83,6 +83,21 @@ export default function App() {
     if (token) { fetchSettings(); checkFiscalAlerts(); fetchMe(); }
   }, [token]);
 
+  // Escuchar eventos de plan desde UpgradeModal y PricingTab
+  useEffect(() => {
+    const goPlans = () => setView('settings');
+    const planChanged = (e: Event) => {
+      const newPlan = (e as CustomEvent<Plan>).detail;
+      if (newPlan) setPlan(newPlan);
+    };
+    window.addEventListener('faktio:plans', goPlans);
+    window.addEventListener('faktio:plan-changed', planChanged);
+    return () => {
+      window.removeEventListener('faktio:plans', goPlans);
+      window.removeEventListener('faktio:plan-changed', planChanged);
+    };
+  }, []);
+
   // Detect ?g=TOKEN in URL for gestor read-only access
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

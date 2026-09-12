@@ -153,18 +153,21 @@ export default function UpgradeModal({ open, onClose, feature, currentPlan, requ
                   ))}
                 </div>
 
-                <div className="bg-indigo-500/8 border border-indigo-500/15 rounded-2xl px-4 py-3">
-                  <p className="text-[10px] font-bold text-indigo-300/80 leading-relaxed">
-                    Para cambiar tu plan, contacta con el administrador de la aplicación o escribe a{' '}
-                    <span className="text-indigo-300 font-black">soporte@faktio.com</span>
-                  </p>
-                </div>
+                <button
+                  onClick={() => {
+                    onClose();
+                    window.dispatchEvent(new CustomEvent('faktio:plans'));
+                  }}
+                  className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2"
+                >
+                  <Sparkles size={12} /> Ver todos los planes y cambiar
+                </button>
 
                 <button
                   onClick={onClose}
                   className="w-full py-3 bg-white/5 border border-white/10 text-slate-400 font-black text-[10px] uppercase tracking-widest rounded-2xl hover:bg-white/10 hover:text-white transition-all"
                 >
-                  Cerrar
+                  Ahora no
                 </button>
               </div>
             </motion.div>
