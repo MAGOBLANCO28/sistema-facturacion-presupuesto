@@ -18,6 +18,7 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
   const [emailModal, setEmailModal] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [emailTo, setEmailTo] = useState((doc as any).client_email || '');
+  const [emailMessage, setEmailMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [emailResult, setEmailResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const isBudget = doc.type === 'quote';
@@ -39,7 +40,7 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
       const res = await fetch(`/api/documents/${doc.id}/send-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ recipient_email: emailTo }),
+        body: JSON.stringify({ recipient_email: emailTo, message: emailMessage }),
       });
       const data = await res.json();
       setEmailResult(res.ok ? { ok: true, msg: data.message } : { ok: false, msg: data.error || 'Error al enviar' });
@@ -359,11 +360,14 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
     {/* Modal envío por email */}
     {emailModal && (
       <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-        <div className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+        <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Mail size={16} className="text-indigo-400" />
-              <h3 className="font-black text-white text-sm">Enviar factura por email</h3>
+              <div>
+                <h3 className="font-black text-white text-sm leading-none">Enviar por email</h3>
+                <p className="text-[9px] text-slate-500 font-bold mt-0.5">La factura llegará como PDF adjunto</p>
+              </div>
             </div>
             <button onClick={() => { setEmailModal(false); setEmailResult(null); }} className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all">
               <X size={14} />
@@ -385,14 +389,23 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
                   className="w-full px-3.5 py-2.5 bg-white/5 border border-white/8 rounded-xl text-[12px] font-bold text-slate-200 placeholder:text-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/40 transition-all"
                 />
               </div>
-              <p className="text-[10px] text-slate-500 font-bold">Se enviará la factura <strong className="text-slate-300">{doc.number}</strong> a este email con todos los detalles y el importe.</p>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mensaje para el cliente <span className="text-slate-600 normal-case">(opcional)</span></label>
+                <textarea
+                  value={emailMessage}
+                  onChange={e => setEmailMessage(e.target.value)}
+                  placeholder={`Hola ${(doc as any).client_name || ''},\n\nAdjunto le envío la factura correspondiente...`}
+                  rows={4}
+                  className="w-full px-3.5 py-2.5 bg-white/5 border border-white/8 rounded-xl text-[12px] font-bold text-slate-200 placeholder:text-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/40 transition-all resize-none leading-relaxed"
+                />
+              </div>
               <button
                 onClick={handleSendEmail}
                 disabled={sending || !emailTo.trim()}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all"
+                className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all"
               >
                 {sending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={13} />}
-                {sending ? 'Enviando…' : 'Enviar'}
+                {sending ? 'Generando PDF y enviando…' : `Enviar ${doc.number} con PDF adjunto`}
               </button>
             </>
           )}

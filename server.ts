@@ -21,6 +21,14 @@ const __dirname = path.dirname(__filename);
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
 
+// Transporter SMTP para emails de facturas con adjunto PDF
+const smtpTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+});
+
 // Carpeta uploads
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
@@ -1468,6 +1476,99 @@ Reglas de cálculo:
   });
 
   // ── ADMIN: GESTIÓN DE CUENTAS ────────────────────────
+  // ── GENERACIÓN PDF CON PDFKIT ─────────────────────────────
+  async function generateInvoicePDF(doc: any, s: any): Promise<Buffer> {
+    const { createRequire } = await import('module');
+    const req2 = createRequire(import.meta.url);
+    const PDFDocument = req2('pdfkit');
+
+    const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n || 0);
+    const docTitle = doc.type === 'quote' ? 'PRESUPUESTO' : doc.type === 'abono' ? 'NOTA DE CRÉDITO' : 'FACTURA';
+    const themeHex = doc.type === 'quote' ? '#d97706' : doc.type === 'abono' ? '#dc2626' : '#7c3aed';
+    const items: Array<any> = doc.items || [];
+    const hasIrpf = (doc.irpf_rate || 0) > 0;
+    const W = 595.28, H = 841.89, M = 50, CW = W - 2 * M;
+
+    return new Promise((resolve, reject) => {
+      const pdf = new PDFDocument({ size: 'A4', margin: 0, info: { Title: `${docTitle} ${doc.number}` } });
+      const chunks: Buffer[] = [];
+      pdf.on('data', (c: Buffer) => chunks.push(c));
+      pdf.on('end', () => resolve(Buffer.concat(chunks)));
+      pdf.on('error', reject);
+
+      // Header bar
+      pdf.rect(0, 0, W, 100).fill(themeHex);
+      pdf.font('Helvetica-Bold').fontSize(20).fillColor('#ffffff').text(docTitle, M, 28);
+      pdf.font('Helvetica-Bold').fontSize(13).fillColor('#ffffff')
+         .text(doc.number, M, 28, { width: CW, align: 'right' });
+      pdf.font('Helvetica').fontSize(10).fillColor('rgba(255,255,255,0.75)')
+         .text(`Fecha: ${doc.date}`, M, 58);
+
+      // Emisor / Cliente
+      const colW = (CW - 20) / 2;
+      let ey = 118, cy2 = 118;
+      const cx = M + colW + 20;
+
+      pdf.font('Helvetica-Bold').fontSize(7).fillColor('#94a3b8').text('EMISOR', M, ey); ey += 13;
+      pdf.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text(s.company_name || '', M, ey, { width: colW }); ey += 15;
+      if (s.cif) { pdf.font('Helvetica').fontSize(9).fillColor('#64748b').text(`NIF/CIF: ${s.cif}`, M, ey, { width: colW }); ey += 12; }
+      if (s.address) { pdf.font('Helvetica').fontSize(9).fillColor('#64748b').text(`${s.address}${s.city ? `, ${s.city}` : ''}`, M, ey, { width: colW }); ey += 12; }
+      if (s.email) { pdf.font('Helvetica').fontSize(9).fillColor('#64748b').text(s.email, M, ey, { width: colW }); ey += 12; }
+
+      pdf.font('Helvetica-Bold').fontSize(7).fillColor('#94a3b8').text('CLIENTE', cx, cy2); cy2 += 13;
+      pdf.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text(doc.client_name || '', cx, cy2, { width: colW }); cy2 += 15;
+      if (doc.client_dni) { pdf.font('Helvetica').fontSize(9).fillColor('#64748b').text(`NIF/CIF: ${doc.client_dni}`, cx, cy2, { width: colW }); cy2 += 12; }
+      if (doc.client_address) { pdf.font('Helvetica').fontSize(9).fillColor('#64748b').text(`${doc.client_address}${doc.client_city ? `, ${doc.client_city}` : ''}`, cx, cy2, { width: colW }); cy2 += 12; }
+
+      // Table
+      let ty = Math.max(ey, cy2) + 24;
+      const cW = [CW * 0.44, CW * 0.10, CW * 0.22, CW * 0.24];
+      const cX = [M, M + cW[0], M + cW[0] + cW[1], M + cW[0] + cW[1] + cW[2]];
+      pdf.rect(M, ty, CW, 22).fill('#f8fafc');
+      pdf.font('Helvetica-Bold').fontSize(7).fillColor('#64748b');
+      pdf.text('CONCEPTO', cX[0] + 6, ty + 7, { width: cW[0] });
+      pdf.text('CANT.', cX[1], ty + 7, { width: cW[1], align: 'center' });
+      pdf.text('PRECIO UNIT.', cX[2], ty + 7, { width: cW[2], align: 'right' });
+      pdf.text('TOTAL', cX[3], ty + 7, { width: cW[3] - 6, align: 'right' });
+      ty += 22;
+
+      items.forEach((item: any, i: number) => {
+        pdf.rect(M, ty, CW, 22).fill(i % 2 === 0 ? '#ffffff' : '#fafafa').stroke('#f1f5f9');
+        pdf.font('Helvetica').fontSize(9).fillColor('#334155').text(item.concept || '', cX[0] + 6, ty + 6, { width: cW[0] - 12 });
+        pdf.fillColor('#64748b').text(String(item.quantity ?? 0), cX[1], ty + 6, { width: cW[1], align: 'center' });
+        pdf.text(fmt(item.price || 0), cX[2], ty + 6, { width: cW[2], align: 'right' });
+        pdf.font('Helvetica-Bold').fillColor('#1e293b').text(fmt(item.total || 0), cX[3], ty + 6, { width: cW[3] - 6, align: 'right' });
+        ty += 22;
+      });
+
+      // Totals
+      ty += 14;
+      const tX = M + CW * 0.54, tW = CW * 0.46;
+      pdf.moveTo(tX, ty).lineTo(W - M, ty).strokeColor('#e2e8f0').lineWidth(1).stroke(); ty += 10;
+      const row = (label: string, val: string, bold = false, col = '#1e293b') => {
+        pdf.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(bold ? 12 : 10)
+           .fillColor('#64748b').text(label, tX, ty, { width: tW * 0.62 });
+        pdf.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(bold ? 12 : 10)
+           .fillColor(col).text(val, tX + tW * 0.62, ty, { width: tW * 0.38, align: 'right' });
+        ty += bold ? 18 : 15;
+      };
+      row('Base imponible', fmt(doc.subtotal));
+      row(`IVA (${doc.iva_rate}%)`, fmt(doc.iva_amount));
+      if (hasIrpf) row(`IRPF (-${doc.irpf_rate}%)`, `-${fmt(doc.irpf_amount)}`, false, '#dc2626');
+      ty += 4;
+      pdf.moveTo(tX, ty).lineTo(W - M, ty).strokeColor('#e2e8f0').stroke(); ty += 8;
+      row('TOTAL', fmt(Math.abs(doc.total)), true, themeHex);
+
+      // Footer
+      const fY = H - 55;
+      pdf.moveTo(M, fY).lineTo(W - M, fY).strokeColor('#e2e8f0').stroke();
+      const footerText = [s.company_name, s.cif ? `NIF/CIF: ${s.cif}` : null, s.address, s.city, s.phone, s.email].filter(Boolean).join('  ·  ');
+      pdf.font('Helvetica').fontSize(7.5).fillColor('#94a3b8').text(footerText, M, fY + 12, { width: CW, align: 'center' });
+
+      pdf.end();
+    });
+  }
+
   // Lista todos los tenants registrados (para detectar cuentas huérfanas/demo)
   // ── PERFIL PROPIO ──────────────────────────────────
   // ── ENVÍO DE FACTURA POR EMAIL (PLAN PROFESIONAL) ──────────
@@ -1476,7 +1577,7 @@ Reglas de cálculo:
     if (plan !== 'profesional') return res.status(403).json({ error: 'plan_limit', plan, feature: 'send_email', required: 'profesional' });
 
     const docId = parseInt(req.params.id);
-    const { recipient_email } = req.body;
+    const { recipient_email, message } = req.body;
     if (!recipient_email?.trim()) return res.status(400).json({ error: 'Se requiere el email del destinatario' });
 
     const [docResult, settingsResult] = await Promise.all([
@@ -1490,81 +1591,73 @@ Reglas de cálculo:
     const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n || 0);
     const docTitle = doc.type === 'quote' ? 'Presupuesto' : doc.type === 'abono' ? 'Nota de Crédito' : 'Factura';
     const themeColor = doc.type === 'quote' ? '#d97706' : doc.type === 'abono' ? '#dc2626' : '#7c3aed';
-    const items: Array<{ concept: string; quantity: number; price: number; total: number }> = doc.items || [];
     const hasIrpf = (doc.irpf_rate || 0) > 0;
+    const msgHtml = message?.trim()
+      ? `<p style="color:#334155;font-size:14px;line-height:1.7;white-space:pre-line;margin:16px 0 20px">${message.trim()}</p>`
+      : '';
 
-    const itemsHtml = items.map(it => `
-      <tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;color:#334155">${it.concept}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:center;color:#64748b">${it.quantity}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:right;color:#64748b">${fmt(it.price)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;color:#1e293b">${fmt(it.total)}</td>
-      </tr>`).join('');
-
-    const html = `
-<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;color:#1e293b">
-  <div style="background:${themeColor};padding:28px 32px;border-radius:12px 12px 0 0">
-    <h1 style="color:#fff;margin:0;font-size:22px;font-weight:900">${docTitle.toUpperCase()} ${doc.number}</h1>
-    <p style="color:rgba(255,255,255,0.8);margin:4px 0 0;font-size:13px">Fecha: ${doc.date}</p>
+    // Email body — limpio, sin referencias a Faktio
+    const emailHtml = `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;background:#f1f5f9;padding:20px">
+  <div style="background:${themeColor};padding:22px 28px;border-radius:8px 8px 0 0">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td><p style="color:#fff;margin:0;font-size:17px;font-weight:900">${s.company_name || ''}</p></td>
+      <td style="text-align:right">
+        <p style="color:rgba(255,255,255,0.75);margin:0;font-size:10px;text-transform:uppercase;letter-spacing:0.08em">${docTitle}</p>
+        <p style="color:#fff;margin:3px 0 0;font-weight:bold;font-size:13px">${doc.number}</p>
+      </td>
+    </tr></table>
   </div>
-  <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:28px 32px;border-radius:0 0 12px 12px">
-    <div style="display:flex;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px">
-      <div>
-        <p style="font-size:10px;font-weight:900;text-transform:uppercase;color:#94a3b8;letter-spacing:0.1em;margin:0 0 4px">Emisor</p>
-        <p style="font-weight:900;color:#1e293b;margin:0">${s.company_name || ''}</p>
-        ${s.cif ? `<p style="color:#64748b;margin:2px 0;font-size:13px">NIF/CIF: ${s.cif}</p>` : ''}
-        ${s.address ? `<p style="color:#64748b;margin:2px 0;font-size:13px">${s.address}${s.city ? `, ${s.city}` : ''}</p>` : ''}
-        ${s.email ? `<p style="color:#64748b;margin:2px 0;font-size:13px">${s.email}</p>` : ''}
-      </div>
-      <div style="text-align:right">
-        <p style="font-size:10px;font-weight:900;text-transform:uppercase;color:#94a3b8;letter-spacing:0.1em;margin:0 0 4px">Cliente</p>
-        <p style="font-weight:900;color:#1e293b;margin:0">${doc.client_name}</p>
-        ${doc.client_dni ? `<p style="color:#64748b;margin:2px 0;font-size:13px">NIF/CIF: ${doc.client_dni}</p>` : ''}
-        ${doc.client_address ? `<p style="color:#64748b;margin:2px 0;font-size:13px">${doc.client_address}${doc.client_city ? `, ${doc.client_city}` : ''}</p>` : ''}
-      </div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
-      <thead>
-        <tr style="background:#f8fafc">
-          <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:900;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0">Concepto</th>
-          <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:900;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0">Cant.</th>
-          <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:900;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0">Precio</th>
-          <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:900;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0">Total</th>
-        </tr>
-      </thead>
-      <tbody>${itemsHtml}</tbody>
+  <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;padding:28px;border-radius:0 0 8px 8px">
+    <p style="color:#1e293b;font-size:14px;line-height:1.7;margin:0 0 4px">Estimado/a <strong>${doc.client_name || 'cliente'}</strong>,</p>
+    ${msgHtml}
+    <p style="color:#334155;font-size:14px;line-height:1.7;margin:0 0 20px">
+      ${msgHtml ? 'Asimismo, a' : 'A'}djuntamos la ${docTitle.toLowerCase()} <strong>${doc.number}</strong> con fecha <strong>${doc.date}</strong>.
+    </p>
+    <table width="100%" cellpadding="6" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:20px">
+      <tr>
+        <td style="color:#64748b;font-size:12px">Base imponible</td>
+        <td style="text-align:right;font-weight:600;font-size:12px;color:#1e293b">${fmt(doc.subtotal)}</td>
+      </tr>
+      <tr>
+        <td style="color:#64748b;font-size:12px">IVA (${doc.iva_rate}%)</td>
+        <td style="text-align:right;font-weight:600;font-size:12px;color:#1e293b">${fmt(doc.iva_amount)}</td>
+      </tr>
+      ${hasIrpf ? `<tr>
+        <td style="color:#64748b;font-size:12px">IRPF (-${doc.irpf_rate}%)</td>
+        <td style="text-align:right;font-weight:600;font-size:12px;color:#dc2626">-${fmt(doc.irpf_amount)}</td>
+      </tr>` : ''}
+      <tr style="border-top:2px solid #e2e8f0">
+        <td style="color:#1e293b;font-weight:900;font-size:15px;padding-top:10px">TOTAL</td>
+        <td style="text-align:right;font-weight:900;font-size:15px;color:${themeColor};padding-top:10px">${fmt(Math.abs(doc.total))}</td>
+      </tr>
     </table>
-    <div style="border-top:2px solid #e2e8f0;padding-top:16px;max-width:280px;margin-left:auto">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-        <span style="color:#64748b;font-size:13px">Base imponible</span>
-        <span style="font-weight:700">${fmt(doc.subtotal)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-        <span style="color:#64748b;font-size:13px">IVA (${doc.iva_rate}%)</span>
-        <span style="font-weight:700">${fmt(doc.iva_amount)}</span>
-      </div>
-      ${hasIrpf ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px">
-        <span style="color:#64748b;font-size:13px">IRPF (-${doc.irpf_rate}%)</span>
-        <span style="font-weight:700;color:#dc2626">-${fmt(doc.irpf_amount)}</span>
-      </div>` : ''}
-      <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:2px solid #e2e8f0">
-        <span style="font-weight:900;font-size:16px">TOTAL</span>
-        <span style="font-weight:900;font-size:16px;color:${themeColor}">${fmt(Math.abs(doc.total))}</span>
-      </div>
-    </div>
-    <div style="margin-top:24px;padding:16px;background:#f8fafc;border-radius:8px;font-size:12px;color:#64748b">
-      <p style="margin:0">Este documento ha sido generado y enviado mediante <strong>Faktio</strong> — Sistema de Facturación.</p>
-      ${s.email ? `<p style="margin:4px 0 0">Para cualquier consulta, contacte con ${s.company_name || 'el emisor'} en ${s.email}.</p>` : ''}
-    </div>
+    <p style="color:#94a3b8;font-size:12px;margin:0 0 20px">Encontrará la factura en formato PDF adjunta a este correo.</p>
+    <hr style="border:none;border-top:1px solid #f1f5f9;margin:0 0 16px">
+    <p style="margin:0;font-weight:900;color:#1e293b;font-size:13px">${s.company_name || ''}</p>
+    ${s.cif ? `<p style="margin:2px 0;color:#64748b;font-size:11px">NIF/CIF: ${s.cif}</p>` : ''}
+    ${s.phone ? `<p style="margin:2px 0;color:#64748b;font-size:11px">${s.phone}</p>` : ''}
+    ${s.email ? `<p style="margin:2px 0;color:#64748b;font-size:11px">${s.email}</p>` : ''}
   </div>
 </div>`;
 
-    const subject = `${docTitle} ${doc.number} — ${s.company_name || 'Faktio'}`;
-    const sent = await enviarEmail(recipient_email.trim(), subject, html);
-    if (sent) {
+    // Generar PDF
+    const pdfBuffer = await generateInvoicePDF(doc, s);
+    const fileName = `${docTitle.replace(/ /g, '_')}_${doc.number}.pdf`;
+    const subject = `${docTitle} ${doc.number} de ${s.company_name || ''}`;
+
+    try {
+      await smtpTransporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: recipient_email.trim(),
+        subject,
+        html: emailHtml,
+        attachments: [{ filename: fileName, content: pdfBuffer, contentType: 'application/pdf' }],
+      });
       res.json({ success: true, message: `${docTitle} enviada a ${recipient_email}` });
-    } else {
-      res.status(500).json({ error: 'No se pudo enviar el email. Inténtalo de nuevo.' });
+    } catch (err: any) {
+      console.error('[SEND-EMAIL]', err?.message);
+      res.status(500).json({ error: 'No se pudo enviar el email. Revisa la configuración SMTP.' });
     }
   });
 
