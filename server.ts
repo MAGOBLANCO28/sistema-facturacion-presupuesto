@@ -21,13 +21,7 @@ const __dirname = path.dirname(__filename);
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
 
-// Transporter SMTP para emails de facturas con adjunto PDF
-const smtpTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-});
+// SMTP transporter creado dinámicamente para leer secrets actualizados en cada petición
 
 // Carpeta uploads
 const uploadsDir = path.join(__dirname, "uploads");
@@ -1642,6 +1636,35 @@ Reglas de cálculo:
 </div>`;
 
     const subject = `${docTitle} ${doc.number} de ${s.company_name || ''}`;
+
+    // Intentar SMTP directo (con PDF adjunto) si está configurado
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = (process.env.SMTP_PASS || '').replace(/\s/g, ''); // quitar espacios del app password
+    if (smtpUser && smtpPass) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: parseInt(process.env.SMTP_PORT || '587'),
+          secure: process.env.SMTP_SECURE === 'true',
+          auth: { user: smtpUser, pass: smtpPass },
+        });
+        const pdfBuffer = await generateInvoicePDF(doc, s);
+        const fileName = `${docTitle.replace(/ /g, '_')}_${doc.number}.pdf`;
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || smtpUser,
+          to: recipient_email.trim(),
+          subject,
+          html: emailHtml,
+          attachments: [{ filename: fileName, content: pdfBuffer, contentType: 'application/pdf' }],
+        });
+        return res.json({ success: true, message: `${docTitle} enviada a ${recipient_email} con PDF adjunto` });
+      } catch (smtpErr: any) {
+        console.error('[SEND-EMAIL SMTP]', smtpErr?.message);
+        // Fallback a n8n sin adjunto
+      }
+    }
+
+    // Fallback: n8n webhook (sin adjunto, pero fiable)
     const sent = await enviarEmail(recipient_email.trim(), subject, emailHtml);
     if (sent) {
       res.json({ success: true, message: `${docTitle} enviada a ${recipient_email}` });
