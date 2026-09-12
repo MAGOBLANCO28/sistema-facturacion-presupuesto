@@ -26,6 +26,7 @@ import { PLAN_REQUIRED } from '../context/PlanContext';
 interface Props {
   settings: CompanySettings | null;
   onUpdate: () => void;
+  initialTab?: string;
 }
 
 const authFetch = (url: string, options?: RequestInit) => {
@@ -40,17 +41,17 @@ const authFetch = (url: string, options?: RequestInit) => {
   });
 };
 
-export default function SettingsView({ settings, onUpdate }: Props) {
+export default function SettingsView({ settings, onUpdate, initialTab }: Props) {
   const { plan, canUse } = usePlan();
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'gestor' | 'plan'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'gestor' | 'plan'>(
+    (initialTab as any) || 'profile'
+  );
 
-  // Abrir pestaña Plan desde UpgradeModal
+  // Sincronizar si App.tsx cambia el tab solicitado (ej: desde UpgradeModal)
   useEffect(() => {
-    const handler = () => setActiveTab('plan');
-    window.addEventListener('faktio:plans', handler);
-    return () => window.removeEventListener('faktio:plans', handler);
-  }, []);
+    if (initialTab) setActiveTab(initialTab as any);
+  }, [initialTab]);
   const [formData, setFormData] = useState<CompanySettings>({
     company_name: '',
     owner_name: '',

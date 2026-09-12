@@ -63,6 +63,7 @@ export default function App() {
   const [plan, setPlan] = useState<Plan>('libre');
   const [impersonating, setImpersonating] = useState<string | null>(null);
   const [isGestor, setIsGestor] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('profile');
 
   useEffect(() => {
     if (!token) return;
@@ -85,7 +86,7 @@ export default function App() {
 
   // Escuchar eventos de plan desde UpgradeModal y PricingTab
   useEffect(() => {
-    const goPlans = () => setView('settings');
+    const goPlans = () => { setView('settings'); setSettingsTab('plan'); };
     const planChanged = (e: Event) => {
       const newPlan = (e as CustomEvent<Plan>).detail;
       if (newPlan) setPlan(newPlan);
@@ -419,7 +420,7 @@ export default function App() {
                     <ChevronLeft size={14} /> Volver al Dashboard
                   </button>
                 </div>
-                <SettingsView settings={settings} onUpdate={fetchSettings} />
+                <SettingsView settings={settings} onUpdate={fetchSettings} initialTab={settingsTab} />
               </motion.div>
             )}
 
