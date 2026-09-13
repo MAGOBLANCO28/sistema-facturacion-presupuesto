@@ -1643,9 +1643,9 @@ Reglas de cálculo:
     if (smtpUser && smtpPass) {
       try {
         const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'smtp.gmail.com',
-          port: parseInt(process.env.SMTP_PORT || '587'),
-          secure: process.env.SMTP_SECURE === 'true',
+          host: process.env.SMTP_HOST || 's4765.use1.stableserver.net',
+          port: parseInt(process.env.SMTP_PORT || '465'),
+          secure: process.env.SMTP_SECURE !== 'false',
           auth: { user: smtpUser, pass: smtpPass },
         });
         const pdfBuffer = await generateInvoicePDF(doc, s);
