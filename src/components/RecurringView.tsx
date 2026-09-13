@@ -337,10 +337,10 @@ export default function RecurringView() {
                     <div>
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Frecuencia</label>
                       <select value={form.frequency} onChange={e => setForm(f => ({...f, frequency: e.target.value}))}
-                        className="w-full mt-1 px-3 py-2.5 bg-white/5 border border-white/8 rounded-xl text-[11px] font-bold text-slate-200 outline-none">
-                        <option value="weekly">Semanal</option>
-                        <option value="monthly">Mensual</option>
-                        <option value="quarterly">Trimestral</option>
+                        className="w-full mt-1 px-3 py-2.5 bg-slate-800 border border-white/8 rounded-xl text-[11px] font-bold text-slate-200 outline-none">
+                        <option value="weekly" style={{ backgroundColor: '#1e293b', color: 'white' }}>Semanal</option>
+                        <option value="monthly" style={{ backgroundColor: '#1e293b', color: 'white' }}>Mensual</option>
+                        <option value="quarterly" style={{ backgroundColor: '#1e293b', color: 'white' }}>Trimestral</option>
                       </select>
                     </div>
                     <div>

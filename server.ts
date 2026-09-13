@@ -649,7 +649,12 @@ async function ejecutarFacturasRecurrentes() {
         AND t.plan = 'profesional'
     `);
     for (const r of due.rows) {
-      const items = r.items;
+      const items = r.items.map((i: any) => ({
+        ...i,
+        // Normalizar: si vino de doc.items usaba unit_price, si vino del form usa price
+        price: i.price ?? i.unit_price ?? 0,
+        total: i.total || ((i.price ?? i.unit_price ?? 0) * (i.quantity || 1)),
+      }));
       const subtotal = items.reduce((s: number, i: any) => s + (i.total || 0), 0);
       const iva_amount = subtotal * (r.iva_rate / 100);
       const irpf_amount = subtotal * (r.irpf_rate / 100);
@@ -671,7 +676,7 @@ async function ejecutarFacturasRecurrentes() {
 
       await pool.query(
         `INSERT INTO documents (tenant_id, type, number, date, client_name, client_dni, client_address, client_city, client_zip, client_province, client_email, items, subtotal, iva_rate, iva_amount, irpf_rate, irpf_amount, total, status)
-         VALUES ($1,'invoice',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'Borrador')`,
+         VALUES ($1,'invoice',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'Emitida')`,
         [r.tenant_id, number, date, r.client_name, r.client_dni, r.client_address, r.client_city, r.client_zip, r.client_province, r.client_email, JSON.stringify(items), subtotal, r.iva_rate, iva_amount, r.irpf_rate, irpf_amount, total]
       );
 

@@ -51,7 +51,7 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
         client_zip: (doc as any).client_zip || '',
         client_province: (doc as any).client_province || '',
         client_email: (doc as any).client_email || '',
-        items: doc.items,
+        items: doc.items.map(i => ({ concept: i.concept, quantity: i.quantity, price: i.unit_price, total: i.total })),
         iva_rate: doc.iva_rate || 21,
         irpf_rate: doc.irpf_rate || 0,
         frequency: recurringFreq,
@@ -444,10 +444,10 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
               <div>
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Frecuencia</label>
                 <select value={recurringFreq} onChange={e => setRecurringFreq(e.target.value)}
-                  className="w-full mt-1 px-3 py-2.5 bg-white/5 border border-white/8 rounded-xl text-[11px] font-bold text-slate-200 outline-none">
-                  <option value="weekly">Semanal</option>
-                  <option value="monthly">Mensual</option>
-                  <option value="quarterly">Trimestral</option>
+                  className="w-full mt-1 px-3 py-2.5 bg-slate-800 border border-white/8 rounded-xl text-[11px] font-bold text-slate-200 outline-none">
+                  <option value="weekly" style={{ backgroundColor: '#1e293b', color: 'white' }}>Semanal</option>
+                  <option value="monthly" style={{ backgroundColor: '#1e293b', color: 'white' }}>Mensual</option>
+                  <option value="quarterly" style={{ backgroundColor: '#1e293b', color: 'white' }}>Trimestral</option>
                 </select>
               </div>
               <div>
