@@ -1637,17 +1637,25 @@ Reglas de cálculo:
 
     const subject = `${docTitle} ${doc.number} de ${s.company_name || ''}`;
 
-    // Intentar SMTP directo (con PDF adjunto) si está configurado
+    // Intentar SMTP directo (con PDF adjunto)
     const smtpUser = process.env.SMTP_USER;
-    const smtpPass = (process.env.SMTP_PASS || '').replace(/\s/g, ''); // quitar espacios del app password
+    const smtpPass = (process.env.SMTP_PASS || '').replace(/\s/g, '');
+    const smtpHost = process.env.SMTP_HOST || 's4765.use1.stableserver.net';
+    const smtpPort = parseInt(process.env.SMTP_PORT || '465');
+    const smtpSecure = process.env.SMTP_SECURE !== 'false';
+
+    console.log('[SEND-EMAIL] smtpUser:', smtpUser || '(no configurado)', '| host:', smtpHost, '| port:', smtpPort);
+
     if (smtpUser && smtpPass) {
       try {
         const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 's4765.use1.stableserver.net',
-          port: parseInt(process.env.SMTP_PORT || '465'),
-          secure: process.env.SMTP_SECURE !== 'false',
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpSecure,
           auth: { user: smtpUser, pass: smtpPass },
+          tls: { rejectUnauthorized: false },
         });
+        await transporter.verify();
         const pdfBuffer = await generateInvoicePDF(doc, s);
         const fileName = `${docTitle.replace(/ /g, '_')}_${doc.number}.pdf`;
         await transporter.sendMail({
@@ -1659,15 +1667,16 @@ Reglas de cálculo:
         });
         return res.json({ success: true, message: `${docTitle} enviada a ${recipient_email} con PDF adjunto` });
       } catch (smtpErr: any) {
-        console.error('[SEND-EMAIL SMTP]', smtpErr?.message);
-        // Fallback a n8n sin adjunto
+        console.error('[SEND-EMAIL SMTP ERROR]', smtpErr?.message);
+        return res.status(500).json({ error: `Error SMTP: ${smtpErr?.message || 'Error desconocido'}. Revisa la configuración SMTP en el servidor.` });
       }
     }
 
-    // Fallback: n8n webhook (sin adjunto, pero fiable)
+    // Fallback: n8n webhook (sin credenciales SMTP configuradas)
+    console.log('[SEND-EMAIL] Sin credenciales SMTP, usando n8n webhook');
     const sent = await enviarEmail(recipient_email.trim(), subject, emailHtml);
     if (sent) {
-      res.json({ success: true, message: `${docTitle} enviada a ${recipient_email}` });
+      res.json({ success: true, message: `${docTitle} enviada a ${recipient_email} (sin PDF — configura SMTP para enviar con adjunto)` });
     } else {
       res.status(500).json({ error: 'No se pudo enviar el email. Inténtalo de nuevo.' });
     }
