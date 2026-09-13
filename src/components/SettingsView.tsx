@@ -258,7 +258,7 @@ export default function SettingsView({ settings, onUpdate, initialTab }: Props) 
                  <h3 className="font-black text-white text-sm">Logo de Empresa</h3>
                  {canUse('logo')
                    ? <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">PNG / JPG (Max 5MB)</p>
-                   : <p className="text-[10px] text-amber-500/70 font-bold">Requiere Plan Profesional</p>
+                   : <p className="text-[10px] text-amber-500/70 font-bold">Requiere Plan Autónomo</p>
                  }
               </div>
             </Card>
