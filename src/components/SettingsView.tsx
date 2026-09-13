@@ -735,13 +735,13 @@ function GestorTab({ plan, canUse }: { plan: Plan; canUse: (f: Feature) => boole
         <div className="bg-white/3 border border-white/8 rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-4">
           <Lock size={32} className="text-slate-600" />
           <div>
-            <p className="font-black text-white text-base">Acceso Gestor — Plan Profesional</p>
+            <p className="font-black text-white text-base">Acceso Gestor — Plan Premium</p>
             <p className="text-slate-500 text-sm font-bold mt-1 max-w-xs mx-auto">
               Genera un enlace seguro para que tu asesor/gestor pueda consultar todos tus datos en tiempo real.
             </p>
           </div>
           <button onClick={() => setUpgradeModal(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all">
-            Ver Plan Profesional
+            Ver Plan Premium
           </button>
         </div>
         <UpgradeModal open={upgradeModal} onClose={() => setUpgradeModal(false)} feature="gestor" currentPlan={plan} requiredPlan={PLAN_REQUIRED['gestor']} />
@@ -841,7 +841,7 @@ const PLANS: Array<{
   },
   {
     id: 'profesional',
-    label: 'Profesional',
+    label: 'Premium',
     subtitle: 'Todo en uno, sin límites',
     price: '19,99 €',
     priceNote: 'al mes · IVA incluido',

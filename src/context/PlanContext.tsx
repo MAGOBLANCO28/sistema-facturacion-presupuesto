@@ -33,7 +33,7 @@ const FEATURE_PLANS: Record<Feature, Plan[]> = {
 export const PLAN_LABELS: Record<Plan, string> = {
   libre: 'Plan Libre',
   autonomo: 'Plan Autónomo',
-  profesional: 'Plan Profesional',
+  profesional: 'Plan Premium',
 };
 
 export const PLAN_REQUIRED: Record<Feature, Plan> = {

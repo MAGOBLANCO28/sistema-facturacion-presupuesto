@@ -7,7 +7,7 @@ type Plan = 'libre' | 'autonomo' | 'profesional';
 const PLAN_LABELS: Record<Plan, string> = {
   libre: 'Libre',
   autonomo: 'Autónomo',
-  profesional: 'Profesional',
+  profesional: 'Premium',
 };
 
 const PLAN_COLORS: Record<Plan, string> = {
@@ -243,7 +243,7 @@ export default function AdminView({ onImpersonate }: AdminViewProps) {
                       >
                         <option value="libre" style={{ backgroundColor: '#1e293b', color: 'white' }}>Libre</option>
                         <option value="autonomo" style={{ backgroundColor: '#1e293b', color: 'white' }}>Autónomo</option>
-                        <option value="profesional" style={{ backgroundColor: '#1e293b', color: 'white' }}>Profesional</option>
+                        <option value="profesional" style={{ backgroundColor: '#1e293b', color: 'white' }}>Premium</option>
                       </select>
                       <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                     </div>

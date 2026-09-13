@@ -153,20 +153,20 @@ export default function RecurringView() {
           </div>
           <div>
             <h2 className="text-xl font-black text-white tracking-tighter">Facturas Recurrentes</h2>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Automatización · Plan Profesional</p>
+            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Automatización · Plan Premium</p>
           </div>
         </div>
         <div className="bg-white/3 border border-white/8 rounded-3xl p-12 flex flex-col items-center justify-center text-center gap-4">
           <Lock size={36} className="text-slate-600" />
           <div>
-            <p className="font-black text-white text-lg">Función del Plan Profesional</p>
+            <p className="font-black text-white text-lg">Función del Plan Premium</p>
             <p className="text-slate-500 text-sm font-bold mt-1">Configura facturas que se generan solas cada mes</p>
           </div>
           <button
             onClick={() => setUpgradeModal(true)}
             className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all"
           >
-            Ver Plan Profesional
+            Ver Plan Premium
           </button>
         </div>
         <UpgradeModal open={upgradeModal} onClose={() => setUpgradeModal(false)} feature="recurring" currentPlan={plan} requiredPlan={PLAN_REQUIRED['recurring']} />
