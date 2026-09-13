@@ -793,6 +793,8 @@ const PLANS: Array<{
   id: Plan;
   label: string;
   subtitle: string;
+  price: string;
+  priceNote: string;
   color: string;
   accentBg: string;
   accentBorder: string;
@@ -803,6 +805,8 @@ const PLANS: Array<{
     id: 'libre',
     label: 'Libre',
     subtitle: 'Para empezar sin coste',
+    price: '0 €',
+    priceNote: 'Siempre gratis',
     color: 'text-slate-300',
     accentBg: 'bg-slate-500/10',
     accentBorder: 'border-slate-500/20',
@@ -818,6 +822,8 @@ const PLANS: Array<{
     id: 'autonomo',
     label: 'Autónomo',
     subtitle: 'Para el día a día profesional',
+    price: '9,99 €',
+    priceNote: 'al mes · IVA incluido',
     color: 'text-indigo-300',
     accentBg: 'bg-indigo-500/10',
     accentBorder: 'border-indigo-500/20',
@@ -837,6 +843,8 @@ const PLANS: Array<{
     id: 'profesional',
     label: 'Profesional',
     subtitle: 'Todo en uno, sin límites',
+    price: '19,99 €',
+    priceNote: 'al mes · IVA incluido',
     color: 'text-purple-300',
     accentBg: 'bg-purple-500/10',
     accentBorder: 'border-purple-500/20',
@@ -899,7 +907,11 @@ function PricingTab({ currentPlan }: { currentPlan: Plan }) {
                       <span className={`px-2 py-0.5 ${p.accentBg} ${p.accentBorder} border rounded-lg text-[8px] font-black ${p.color} uppercase tracking-widest`}>Tu plan actual</span>
                     )}
                   </div>
-                  <p className="text-[10px] text-slate-500 font-bold mb-3">{p.subtitle}</p>
+                  <p className="text-[10px] text-slate-500 font-bold mb-2">{p.subtitle}</p>
+                  <div className="flex items-baseline gap-1.5 mb-3">
+                    <span className={`text-2xl font-black ${isActive ? p.color : 'text-white'}`}>{p.price}</span>
+                    <span className="text-[9px] font-bold text-slate-500">{p.priceNote}</span>
+                  </div>
                   <ul className="space-y-1.5">
                     {p.features.map((f, i) => (
                       <li key={i} className="flex items-center gap-2">

@@ -135,11 +135,16 @@ export default function UpgradeModal({ open, onClose, feature, currentPlan, requ
                       <Sparkles size={14} className="text-purple-400" />
                       <p className="font-black text-white text-sm">{planLabel}</p>
                     </div>
+                    <p className="text-xl font-black text-purple-300 mt-1">
+                      {requiredPlan === 'autonomo' ? '9,99 €' : '19,99 €'}
+                      <span className="text-[9px] font-bold text-slate-500 ml-1">/ mes</span>
+                    </p>
                   </div>
                   <ArrowRight size={16} className="text-slate-600" />
                   <div>
                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Tu plan actual</p>
                     <p className="font-black text-slate-400 text-sm">{PLAN_LABELS[currentPlan]}</p>
+                    <p className="text-[9px] font-bold text-slate-600 mt-0.5">Gratis</p>
                   </div>
                 </div>
 

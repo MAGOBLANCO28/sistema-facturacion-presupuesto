@@ -238,11 +238,12 @@ export default function AdminView({ onImpersonate }: AdminViewProps) {
                         value={tenant.plan || 'libre'}
                         onChange={e => handleChangePlan(tenant.id, e.target.value as Plan)}
                         disabled={changingPlan === tenant.id}
-                        className="appearance-none pl-2.5 pr-6 py-2 bg-white/5 border border-white/8 text-slate-300 text-[10px] font-black rounded-xl cursor-pointer hover:bg-white/10 transition-all disabled:opacity-50 outline-none"
+                        className="appearance-none pl-2.5 pr-6 py-2 bg-slate-800 border border-white/8 text-slate-300 text-[10px] font-black rounded-xl cursor-pointer hover:bg-slate-700 transition-all disabled:opacity-50 outline-none"
+                        style={{ backgroundColor: '#1e293b', color: 'white' }}
                       >
-                        <option value="libre">Libre</option>
-                        <option value="autonomo">Autónomo</option>
-                        <option value="profesional">Profesional</option>
+                        <option value="libre" style={{ backgroundColor: '#1e293b', color: 'white' }}>Libre</option>
+                        <option value="autonomo" style={{ backgroundColor: '#1e293b', color: 'white' }}>Autónomo</option>
+                        <option value="profesional" style={{ backgroundColor: '#1e293b', color: 'white' }}>Profesional</option>
                       </select>
                       <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                     </div>
