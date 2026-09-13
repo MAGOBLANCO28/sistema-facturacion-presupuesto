@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { DocumentData, CompanySettings } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
-import { Zap, Printer, FileDown, Mail, X, Send, Lock } from 'lucide-react';
+import { Zap, Printer, FileDown, Mail, X, Send, Lock, RefreshCw, Check } from 'lucide-react';
 import { usePlan } from '../context/PlanContext';
 import UpgradeModal from './UpgradeModal';
 import { PLAN_REQUIRED } from '../context/PlanContext';
@@ -21,6 +21,12 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
   const [emailMessage, setEmailMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [emailResult, setEmailResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [recurringModal, setRecurringModal] = useState(false);
+  const [recurringFreq, setRecurringFreq] = useState('monthly');
+  const [recurringDate, setRecurringDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [recurringName, setRecurringName] = useState('');
+  const [savingRecurring, setSavingRecurring] = useState(false);
+  const [recurringDone, setRecurringDone] = useState(false);
   const isBudget = doc.type === 'quote';
   const isAbono  = doc.type === 'abono';
 
@@ -30,6 +36,36 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+
+  const handleMakeRecurring = async () => {
+    setSavingRecurring(true);
+    try {
+      const token = localStorage.getItem('token');
+      const name = recurringName.trim() || `${doc.client_name} – ${doc.number}`;
+      const payload = {
+        name,
+        client_name: doc.client_name || '',
+        client_dni: (doc as any).client_dni || '',
+        client_address: (doc as any).client_address || '',
+        client_city: (doc as any).client_city || '',
+        client_zip: (doc as any).client_zip || '',
+        client_province: (doc as any).client_province || '',
+        client_email: (doc as any).client_email || '',
+        items: doc.items,
+        iva_rate: doc.iva_rate || 21,
+        irpf_rate: doc.irpf_rate || 0,
+        frequency: recurringFreq,
+        next_date: recurringDate,
+      };
+      const res = await fetch('/api/recurring', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) setRecurringDone(true);
+    } catch {}
+    finally { setSavingRecurring(false); }
+  };
 
   const handleSendEmail = async () => {
     if (!emailTo.trim()) return;
@@ -68,6 +104,20 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
           <h3 className="text-xl font-black text-white tracking-tighter">Documento {doc.number}</h3>
         </div>
         <div className="flex items-center gap-4">
+          {/* Botón Hacer recurrente — solo facturas */}
+          {!isBudget && !isAbono && (
+            <button
+              onClick={() => canUse('recurring') ? (setRecurringDone(false), setRecurringModal(true)) : setUpgradeModal(true)}
+              className={`flex items-center gap-2 px-4 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border ${
+                canUse('recurring')
+                  ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20'
+                  : 'bg-white/3 border-white/5 text-slate-600 hover:bg-white/8 hover:text-slate-400'
+              }`}
+            >
+              {canUse('recurring') ? <RefreshCw size={14} /> : <Lock size={14} />}
+              Recurrente
+            </button>
+          )}
           {/* Botón Enviar por email */}
           <button
             onClick={() => canUse('send_email') ? setEmailModal(true) : setUpgradeModal(true)}
@@ -357,6 +407,67 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
     </div>
 
     {/* Modales (fuera del doc para evitar clipping) */}
+
+    {/* Modal hacer recurrente */}
+    {recurringModal && (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <RefreshCw size={16} className="text-purple-400" />
+              <h4 className="font-black text-white">Hacer recurrente</h4>
+            </div>
+            <button onClick={() => setRecurringModal(false)} className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"><X size={14} /></button>
+          </div>
+
+          {recurringDone ? (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center">
+                <Check size={22} className="text-emerald-400" />
+              </div>
+              <p className="font-black text-white text-center">¡Factura recurrente creada!</p>
+              <p className="text-slate-400 text-xs text-center">Se generará automáticamente según la frecuencia elegida. La encontrarás en <strong>Recurrentes</strong>.</p>
+              <button onClick={() => setRecurringModal(false)} className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all">Cerrar</button>
+            </div>
+          ) : (
+            <>
+              <p className="text-slate-400 text-xs">Se copiará esta factura (<strong className="text-white">{doc.number}</strong>) con todos sus datos y conceptos. Solo elige la frecuencia y cuándo empieza.</p>
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombre de la plantilla (opcional)</label>
+                <input
+                  value={recurringName}
+                  onChange={e => setRecurringName(e.target.value)}
+                  placeholder={`${doc.client_name} – ${doc.number}`}
+                  className="w-full mt-1 px-3 py-2.5 bg-white/5 border border-white/8 rounded-xl text-[11px] font-bold text-slate-200 outline-none focus:ring-1 focus:ring-purple-500/30"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Frecuencia</label>
+                <select value={recurringFreq} onChange={e => setRecurringFreq(e.target.value)}
+                  className="w-full mt-1 px-3 py-2.5 bg-white/5 border border-white/8 rounded-xl text-[11px] font-bold text-slate-200 outline-none">
+                  <option value="weekly">Semanal</option>
+                  <option value="monthly">Mensual</option>
+                  <option value="quarterly">Trimestral</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Primera generación</label>
+                <input type="date" value={recurringDate} onChange={e => setRecurringDate(e.target.value)}
+                  className="w-full mt-1 px-3 py-2.5 bg-white/5 border border-white/8 rounded-xl text-[11px] font-bold text-slate-200 outline-none" />
+              </div>
+              <button onClick={handleMakeRecurring} disabled={savingRecurring}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all">
+                {savingRecurring
+                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <RefreshCw size={13} />}
+                {savingRecurring ? 'Guardando…' : 'Activar recurrencia'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+
     {/* Modal envío por email */}
     {emailModal && (
       <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
