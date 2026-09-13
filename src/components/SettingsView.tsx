@@ -74,6 +74,7 @@ export default function SettingsView({ settings, onUpdate, initialTab }: Props) 
   const [pinForSeed, setPinForSeed] = useState('');
   
   const [saved, setSaved] = useState(false);
+  const [savedAgents, setSavedAgents] = useState(false);
   const [settingsError, setSettingsError] = useState('');
   const [error, setError] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -125,6 +126,22 @@ export default function SettingsView({ settings, onUpdate, initialTab }: Props) 
       }
     } catch (err) {
       console.error('Error saving settings:', err);
+    }
+  };
+
+  const handleSaveAgents = async () => {
+    try {
+      const res = await authFetch('/api/settings', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+      if (res.ok) {
+        onUpdate();
+        setSavedAgents(true);
+        setTimeout(() => setSavedAgents(false), 3000);
+      }
+    } catch (err) {
+      console.error('Error saving agent settings:', err);
     }
   };
 
@@ -554,10 +571,18 @@ export default function SettingsView({ settings, onUpdate, initialTab }: Props) 
 
             <button
               type="button"
-              onClick={handleSubmit as any}
-              className="w-full py-3.5 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-500/20"
+              onClick={handleSaveAgents}
+              className={`w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 ${
+                savedAgents
+                  ? 'bg-emerald-600 shadow-emerald-500/20 text-white'
+                  : 'bg-purple-600 hover:bg-purple-500 shadow-purple-500/20 text-white'
+              }`}
             >
-              {saved ? '✅ Guardado' : 'Guardar Configuración de Alertas'}
+              {savedAgents ? (
+                <><CheckCircle2 size={14} /> Configuración guardada</>
+              ) : (
+                'Guardar Configuración de Alertas'
+              )}
             </button>
           </motion.div>
         ) : activeTab === 'gestor' ? (
