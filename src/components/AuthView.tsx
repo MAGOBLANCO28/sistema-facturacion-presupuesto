@@ -37,6 +37,7 @@ export default function AuthView({ onLogin }: Props) {
   const [tempToken, setTempToken] = useState('');
   const [copied, setCopied] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const cleanupSensitive = useCallback(() => {
     setPassword(''); setPin(''); setNewTargetValue(''); setVerifyWord('');
@@ -179,6 +180,7 @@ export default function AuthView({ onLogin }: Props) {
   };
 
   return (
+    <>
     <div className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-slate-950 font-sans">
       <style dangerouslySetInnerHTML={{ __html: `
         input:-webkit-autofill { -webkit-box-shadow: 0 0 0 30px #020617 inset !important; -webkit-text-fill-color: white !important; }
@@ -318,11 +320,11 @@ export default function AuthView({ onLogin }: Props) {
                         </div>
                         <p className="text-[9px] text-slate-500 leading-relaxed font-bold">
                           He leído y acepto la{' '}
-                          <a href="/politicas.html" target="_blank" rel="noopener noreferrer"
+                          <button type="button"
                             className="text-purple-400 hover:text-purple-300 underline underline-offset-2"
-                            onClick={e => e.stopPropagation()}>
+                            onClick={e => { e.stopPropagation(); setShowPrivacyModal(true); }}>
                             Política de Privacidad
-                          </a>
+                          </button>
                           {' '}y el tratamiento de mis datos conforme al RGPD
                         </p>
                       </label>
@@ -563,6 +565,58 @@ export default function AuthView({ onLogin }: Props) {
         </div>
       </motion.div>
     </div>
+    {/* Modal Política de Privacidad */}
+    {showPrivacyModal && (
+      <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl shadow-2xl flex flex-col max-h-[85vh]">
+          <div className="flex items-center justify-between p-5 border-b border-white/5 shrink-0">
+            <h3 className="font-black text-white">Política de Privacidad</h3>
+            <button onClick={() => setShowPrivacyModal(false)} className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"><X size={14} /></button>
+          </div>
+          <div className="overflow-y-auto p-5 space-y-4 text-[11px] text-slate-400 leading-relaxed font-medium">
+            <p className="text-[9px] text-slate-600 uppercase tracking-widest font-black">Última actualización: enero 2026</p>
+
+            <div>
+              <p className="font-black text-white text-xs mb-1">1. Responsable del tratamiento</p>
+              <p>El responsable del tratamiento es <strong className="text-slate-300">Faktio Pro</strong>, accesible a través de faktiopro.com. Puedes contactar en <span className="text-purple-400">privacidad@faktiopro.com</span>.</p>
+            </div>
+            <div>
+              <p className="font-black text-white text-xs mb-1">2. Datos que recopilamos</p>
+              <p>Recopilamos únicamente los datos necesarios para prestar el servicio: email de acceso, datos de empresa y facturación introducidos por el usuario, y datos técnicos de sesión (token JWT).</p>
+            </div>
+            <div>
+              <p className="font-black text-white text-xs mb-1">3. Finalidad del tratamiento</p>
+              <p>Los datos se usan exclusivamente para: gestionar tu cuenta, generar y almacenar tus documentos de facturación, y enviarte notificaciones relacionadas con el servicio.</p>
+            </div>
+            <div>
+              <p className="font-black text-white text-xs mb-1">4. Base legal</p>
+              <p>El tratamiento se basa en la ejecución del contrato de servicio aceptado al registrarte (Art. 6.1.b RGPD) y el consentimiento explícito para comunicaciones opcionales.</p>
+            </div>
+            <div>
+              <p className="font-black text-white text-xs mb-1">5. Conservación de datos</p>
+              <p>Tus datos se conservan mientras mantengas una cuenta activa. Tras la baja, se eliminan en un plazo máximo de 30 días, salvo obligación legal de conservación (facturas: 5 años según normativa fiscal española).</p>
+            </div>
+            <div>
+              <p className="font-black text-white text-xs mb-1">6. Tus derechos</p>
+              <p>Tienes derecho de acceso, rectificación, supresión, portabilidad y oposición. Puedes ejercerlos escribiendo a <span className="text-purple-400">privacidad@faktiopro.com</span>. También puedes reclamar ante la Agencia Española de Protección de Datos (aepd.es).</p>
+            </div>
+            <div>
+              <p className="font-black text-white text-xs mb-1">7. Seguridad</p>
+              <p>Todas las conexiones están cifradas (HTTPS/TLS). Las contraseñas se almacenan con bcrypt. Los tokens de sesión son JWT con caducidad. No compartimos datos con terceros salvo obligación legal.</p>
+            </div>
+          </div>
+          <div className="p-4 border-t border-white/5 shrink-0">
+            <button
+              onClick={() => { setAcceptedPrivacy(true); setShowPrivacyModal(false); }}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all"
+            >
+              He leído y acepto
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 
