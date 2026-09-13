@@ -162,14 +162,35 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
             position: fixed !important;
             top: 50% !important;
             left: 50% !important;
-            transform: translate(-50%, -50%) rotate(-35deg) !important;
-            font-size: 5rem !important;
-            font-weight: 900 !important;
-            color: rgba(139,92,246,0.08) !important;
-            letter-spacing: 0.2em !important;
-            white-space: nowrap !important;
+            transform: translate(-50%, -50%) rotate(-30deg) !important;
+            opacity: 0.13 !important;
             pointer-events: none !important;
             z-index: 9999 !important;
+          }
+          .watermark-libre-inner {
+            border: 3px solid #7c3aed !important;
+            border-radius: 6px !important;
+            padding: 10px 28px !important;
+            text-align: center !important;
+          }
+          .watermark-libre-title {
+            display: block !important;
+            font-size: 1.6rem !important;
+            font-weight: 900 !important;
+            color: #7c3aed !important;
+            letter-spacing: 0.25em !important;
+            white-space: nowrap !important;
+            font-family: sans-serif !important;
+          }
+          .watermark-libre-sub {
+            display: block !important;
+            font-size: 0.6rem !important;
+            font-weight: 700 !important;
+            color: #7c3aed !important;
+            letter-spacing: 0.5em !important;
+            white-space: nowrap !important;
+            font-family: sans-serif !important;
+            margin-top: 3px !important;
           }
 
           /* Cabecera compacta */
@@ -211,21 +232,43 @@ export default function DocumentPreview({ doc, settings, onConvert }: Props) {
           <div
             className="watermark-libre pointer-events-none absolute inset-0 z-50 flex items-center justify-center overflow-hidden"
             aria-hidden="true"
+            style={{ opacity: 0.13 }}
           >
-            <span style={{
-              display: 'block',
-              transform: 'rotate(-35deg)',
-              fontSize: '5rem',
-              fontWeight: 900,
-              color: 'rgba(139,92,246,0.06)',
-              letterSpacing: '0.2em',
-              userSelect: 'none',
-              whiteSpace: 'nowrap',
-              textTransform: 'uppercase',
-              fontFamily: 'sans-serif',
-            }}>
-              FAKTIO LIBRE
-            </span>
+            <div
+              className="watermark-libre-inner"
+              style={{
+                transform: 'rotate(-30deg)',
+                border: '3px solid #7c3aed',
+                borderRadius: '6px',
+                padding: '10px 28px',
+                textAlign: 'center',
+                userSelect: 'none',
+              }}
+            >
+              <span className="watermark-libre-title" style={{
+                display: 'block',
+                fontSize: '1.6rem',
+                fontWeight: 900,
+                color: '#7c3aed',
+                letterSpacing: '0.25em',
+                whiteSpace: 'nowrap',
+                fontFamily: 'sans-serif',
+              }}>
+                PLAN LIBRE
+              </span>
+              <span className="watermark-libre-sub" style={{
+                display: 'block',
+                fontSize: '0.6rem',
+                fontWeight: 700,
+                color: '#7c3aed',
+                letterSpacing: '0.5em',
+                whiteSpace: 'nowrap',
+                fontFamily: 'sans-serif',
+                marginTop: '3px',
+              }}>
+                FAKTIO
+              </span>
+            </div>
           </div>
         )}
 
