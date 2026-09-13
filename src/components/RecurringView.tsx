@@ -50,6 +50,8 @@ const EMPTY_FORM = {
   client_dni: '',
   client_address: '',
   client_city: '',
+  client_zip: '',
+  client_province: '',
   client_email: '',
   iva_rate: 21,
   irpf_rate: 0,
@@ -57,6 +59,17 @@ const EMPTY_FORM = {
   next_date: '',
   items: [{ concept: '', quantity: 1, price: 0, total: 0 }] as RecurringItem[],
 };
+
+interface Client {
+  id: number;
+  name: string;
+  nif: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  zip: string | null;
+  province: string | null;
+}
 
 export default function RecurringView() {
   const { plan, canUse } = usePlan();
@@ -67,6 +80,7 @@ export default function RecurringView() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
 
   const fetchList = useCallback(async () => {
     if (!canUse('recurring')) { setLoading(false); return; }
@@ -78,7 +92,29 @@ export default function RecurringView() {
     finally { setLoading(false); }
   }, [canUse]);
 
-  useEffect(() => { fetchList(); }, [fetchList]);
+  const fetchClients = useCallback(async () => {
+    try {
+      const res = await authFetch('/api/clients');
+      if (res.ok) setClients(await res.json());
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchList(); fetchClients(); }, [fetchList, fetchClients]);
+
+  const handleSelectClient = (clientId: string) => {
+    const c = clients.find(cl => cl.id === Number(clientId));
+    if (!c) return;
+    setForm(f => ({
+      ...f,
+      client_name: c.name || '',
+      client_dni: c.nif || '',
+      client_address: c.address || '',
+      client_city: c.city || '',
+      client_zip: c.zip || '',
+      client_province: c.province || '',
+      client_email: c.email || '',
+    }));
+  };
 
   const openNew = () => {
     setEditing(null);
@@ -91,9 +127,11 @@ export default function RecurringView() {
     setForm({
       name: r.name,
       client_name: r.client_name,
-      client_dni: '',
-      client_address: '',
-      client_city: '',
+      client_dni: (r as any).client_dni || '',
+      client_address: (r as any).client_address || '',
+      client_city: (r as any).client_city || '',
+      client_zip: (r as any).client_zip || '',
+      client_province: (r as any).client_province || '',
       client_email: r.client_email || '',
       iva_rate: r.iva_rate,
       irpf_rate: r.irpf_rate,
@@ -264,8 +302,35 @@ export default function RecurringView() {
                 </div>
                 <div className="p-6 space-y-4">
                   <Field label="Nombre de la plantilla" value={form.name} onChange={v => setForm(f => ({...f, name: v}))} placeholder="Ej. Mantenimiento web mensual" />
+
+                  {/* Selector de cliente existente */}
+                  {clients.length > 0 && (
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Seleccionar cliente guardado</label>
+                      <select
+                        defaultValue=""
+                        onChange={e => handleSelectClient(e.target.value)}
+                        className="w-full mt-1 px-3 py-2.5 bg-white/5 border border-white/8 rounded-xl text-[11px] font-bold text-slate-200 outline-none focus:ring-1 focus:ring-purple-500/30"
+                      >
+                        <option value="">— Elige un cliente para rellenar sus datos —</option>
+                        {clients.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}{c.nif ? ` · ${c.nif}` : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Nombre del cliente" value={form.client_name} onChange={v => setForm(f => ({...f, client_name: v}))} placeholder="Empresa S.L." />
+                    <Field label="Nombre del cliente *" value={form.client_name} onChange={v => setForm(f => ({...f, client_name: v}))} placeholder="Empresa S.L." />
+                    <Field label="NIF/CIF" value={form.client_dni} onChange={v => setForm(f => ({...f, client_dni: v}))} placeholder="B12345678" />
+                  </div>
+                  <Field label="Dirección" value={form.client_address} onChange={v => setForm(f => ({...f, client_address: v}))} placeholder="Calle Mayor 1" />
+                  <div className="grid grid-cols-3 gap-3">
+                    <Field label="CP" value={form.client_zip} onChange={v => setForm(f => ({...f, client_zip: v}))} placeholder="28001" />
+                    <Field label="Ciudad" value={form.client_city} onChange={v => setForm(f => ({...f, client_city: v}))} placeholder="Madrid" />
+                    <Field label="Provincia" value={form.client_province} onChange={v => setForm(f => ({...f, client_province: v}))} placeholder="Madrid" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <Field label="Email del cliente" value={form.client_email} onChange={v => setForm(f => ({...f, client_email: v}))} placeholder="cliente@empresa.com" />
                   </div>
                   <div className="grid grid-cols-3 gap-3">
