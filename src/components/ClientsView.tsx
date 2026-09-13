@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, Plus, Search, Pencil, Trash2, X, Check, Phone, Mail, MapPin, Hash, FileText } from 'lucide-react';
 import { Client } from '../types';
+import UpgradeModal from './UpgradeModal';
+import { usePlan, PLAN_REQUIRED } from '../context/PlanContext';
 
 const authFetch = (url: string, options?: RequestInit) => {
   const token = localStorage.getItem('token');
@@ -18,6 +20,7 @@ const authFetch = (url: string, options?: RequestInit) => {
 const EMPTY_CLIENT: Client = { name: '', nif: '', email: '', phone: '', address: '', city: '', province: '', zip: '', notes: '' };
 
 export default function ClientsView() {
+  const { plan } = usePlan();
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -27,6 +30,7 @@ export default function ClientsView() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
@@ -47,6 +51,7 @@ export default function ClientsView() {
   }, [fetchClients]);
 
   const openNew = () => {
+    if (plan === 'libre' && clients.length >= 2) { setShowUpgrade(true); return; }
     setEditingClient(null);
     setFormData(EMPTY_CLIENT);
     setError('');
@@ -69,7 +74,11 @@ export default function ClientsView() {
         ? await authFetch(`/api/clients/${editingClient.id}`, { method: 'PUT', body: JSON.stringify(formData) })
         : await authFetch('/api/clients', { method: 'POST', body: JSON.stringify(formData) });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Error al guardar'); return; }
+      if (!res.ok) {
+        if (data.error === 'plan_limit') { setShowForm(false); setShowUpgrade(true); return; }
+        setError(data.error || 'Error al guardar');
+        return;
+      }
       setShowForm(false);
       fetchClients();
     } catch {
@@ -270,6 +279,16 @@ export default function ClientsView() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showUpgrade && (
+        <UpgradeModal
+          open={true}
+          onClose={() => setShowUpgrade(false)}
+          feature="clients"
+          currentPlan={plan}
+          requiredPlan={PLAN_REQUIRED['clients']}
+        />
+      )}
     </div>
   );
 }

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Trash2, Save, FileText, Calendar as CalendarIcon, Hash, User, CheckCircle2, Search, UserPlus } from 'lucide-react';
 import { DocumentType, DocumentData, DocumentItem, CompanySettings, Client } from '../types';
+import UpgradeModal from './UpgradeModal';
+import { usePlan, PLAN_REQUIRED, Feature } from '../context/PlanContext';
 
 const formatEuro = (amount: number) => {
   return new Intl.NumberFormat('es-ES', {
@@ -23,6 +25,9 @@ const ACCENT = '#4F46E5';
 const AMBER = '#F59E0B';
 
 export default function DocumentEditor({ type, initialData, onSave, settings }: Props) {
+  const { plan } = usePlan();
+  const [upgradeFeature, setUpgradeFeature] = useState<Feature | null>(null);
+
   const [formData, setFormData] = useState<DocumentData>({
     type,
     number: '',
@@ -252,8 +257,12 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
         setTimeout(() => onSave(), 1400);
       } else {
         const err = await res.json().catch(() => ({}));
-        setSaveError(err.error || 'Error al guardar. Inténtalo de nuevo.');
-        setTimeout(() => setSaveError(''), 4000);
+        if (err.error === 'plan_limit') {
+          setUpgradeFeature((err.feature as Feature) || 'documents');
+        } else {
+          setSaveError(err.error || 'Error al guardar. Inténtalo de nuevo.');
+          setTimeout(() => setSaveError(''), 4000);
+        }
       }
     } catch (err) {
       setSaveError('Sin conexión con el servidor. Comprueba que está corriendo.');
@@ -595,6 +604,16 @@ export default function DocumentEditor({ type, initialData, onSave, settings }: 
             <p className="text-sm text-slate-400 font-bold">Redirigiendo...</p>
           </motion.div>
         </motion.div>
+      )}
+
+      {upgradeFeature && (
+        <UpgradeModal
+          open={true}
+          onClose={() => setUpgradeFeature(null)}
+          feature={upgradeFeature}
+          currentPlan={plan}
+          requiredPlan={PLAN_REQUIRED[upgradeFeature]}
+        />
       )}
     </div>
   );
