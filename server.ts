@@ -1637,49 +1637,38 @@ Reglas de cálculo:
 
     const subject = `${docTitle} ${doc.number} de ${s.company_name || ''}`;
 
-    // Intentar SMTP directo (con PDF adjunto)
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = (process.env.SMTP_PASS || '').replace(/\s/g, '');
-    const smtpHost = process.env.SMTP_HOST || 's4765.use1.stableserver.net';
-    const smtpPort = parseInt(process.env.SMTP_PORT || '465');
-    const smtpSecure = process.env.SMTP_SECURE !== 'false';
+    // Generar PDF siempre
+    let pdfBase64: string | undefined;
+    let pdfFileName: string | undefined;
+    try {
+      const pdfBuffer = await generateInvoicePDF(doc, s);
+      pdfFileName = `${docTitle.replace(/ /g, '_')}_${doc.number}.pdf`;
+      pdfBase64 = pdfBuffer.toString('base64');
+    } catch (pdfErr: any) {
+      console.error('[SEND-EMAIL PDF]', pdfErr?.message);
+    }
 
-    console.log('[SEND-EMAIL] smtpUser:', smtpUser || '(no configurado)', '| host:', smtpHost, '| port:', smtpPort);
-
-    if (smtpUser && smtpPass) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: smtpPort,
-          secure: smtpSecure,
-          auth: { user: smtpUser, pass: smtpPass },
-          tls: { rejectUnauthorized: false },
-        });
-        await transporter.verify();
-        const pdfBuffer = await generateInvoicePDF(doc, s);
-        const fileName = `${docTitle.replace(/ /g, '_')}_${doc.number}.pdf`;
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM || smtpUser,
+    // Enviar vía n8n webhook (n8n usa su propio SMTP sin restricciones de puerto)
+    try {
+      const webhookRes = await fetch('https://automation.magoblancodigital.link/webhook/faktio-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           to: recipient_email.trim(),
           subject,
           html: emailHtml,
-          attachments: [{ filename: fileName, content: pdfBuffer, contentType: 'application/pdf' }],
-        });
-        return res.json({ success: true, message: `${docTitle} enviada a ${recipient_email} con PDF adjunto` });
-      } catch (smtpErr: any) {
-        console.error('[SEND-EMAIL SMTP ERROR]', smtpErr?.message);
-        return res.status(500).json({ error: `Error SMTP: ${smtpErr?.message || 'Error desconocido'}. Revisa la configuración SMTP en el servidor.` });
+          ...(pdfBase64 ? { pdf_base64: pdfBase64, pdf_filename: pdfFileName } : {}),
+        }),
+      });
+      if (webhookRes.ok) {
+        return res.json({ success: true, message: `${docTitle} enviada a ${recipient_email}${pdfBase64 ? ' con PDF adjunto' : ''}` });
       }
+      const errBody = await webhookRes.text();
+      console.error('[SEND-EMAIL n8n]', webhookRes.status, errBody);
+    } catch (webhookErr: any) {
+      console.error('[SEND-EMAIL n8n]', webhookErr?.message);
     }
-
-    // Fallback: n8n webhook (sin credenciales SMTP configuradas)
-    console.log('[SEND-EMAIL] Sin credenciales SMTP, usando n8n webhook');
-    const sent = await enviarEmail(recipient_email.trim(), subject, emailHtml);
-    if (sent) {
-      res.json({ success: true, message: `${docTitle} enviada a ${recipient_email} (sin PDF — configura SMTP para enviar con adjunto)` });
-    } else {
-      res.status(500).json({ error: 'No se pudo enviar el email. Inténtalo de nuevo.' });
-    }
+    res.status(500).json({ error: 'No se pudo enviar el email. Inténtalo de nuevo.' });
   });
 
   // ── FACTURAS RECURRENTES (PLAN PROFESIONAL) ──────────────
