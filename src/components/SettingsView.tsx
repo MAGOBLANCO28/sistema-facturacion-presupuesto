@@ -74,6 +74,7 @@ export default function SettingsView({ settings, onUpdate, initialTab }: Props) 
   const [pinForSeed, setPinForSeed] = useState('');
   
   const [saved, setSaved] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
   const [error, setError] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,8 +90,29 @@ export default function SettingsView({ settings, onUpdate, initialTab }: Props) 
     }
   }, [settings]);
 
+  const REQUIRED_FIELDS: { key: keyof CompanySettings; label: string }[] = [
+    { key: 'company_name', label: 'Nombre Empresa' },
+    { key: 'cif',          label: 'NIF / CIF' },
+    { key: 'owner_name',   label: 'Responsable' },
+    { key: 'email',        label: 'Email Fiscal' },
+    { key: 'phone',        label: 'Teléfono' },
+    { key: 'address',      label: 'Dirección Postal' },
+    { key: 'city',         label: 'Ciudad' },
+    { key: 'province',     label: 'Provincia' },
+    { key: 'zip',          label: 'C.P.' },
+  ];
+
+  const getMissingFields = () =>
+    REQUIRED_FIELDS.filter(f => !String(formData[f.key] || '').trim()).map(f => f.label);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const missing = getMissingFields();
+    if (missing.length > 0) {
+      setSettingsError(`Completa los campos obligatorios: ${missing.join(', ')}`);
+      return;
+    }
+    setSettingsError('');
     try {
       const res = await authFetch('/api/settings', {
         method: 'POST',
@@ -235,17 +257,17 @@ export default function SettingsView({ settings, onUpdate, initialTab }: Props) 
             {/* Formulario */}
             <Card className="md:col-span-2 p-3 space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                 <InputField label="Nombre Empresa" value={formData.company_name} onChange={(e: any) => setFormData({...formData, company_name: e.target.value})} placeholder="Ej. ACME S.L." />
-                 <InputField label="NIF / CIF" value={formData.cif} onChange={e => setFormData({...formData, cif: e.target.value})} placeholder="B12345678" />
-                 <InputField label="Responsable" value={formData.owner_name} onChange={e => setFormData({...formData, owner_name: e.target.value})} placeholder="Nombre Completo" />
-                 <InputField label="Email Fiscal" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="admin@factio.es" />
-                 <InputField label="Teléfono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+34 ..." />
+                 <InputField label="Nombre Empresa *" value={formData.company_name} onChange={(e: any) => { setFormData({...formData, company_name: e.target.value}); setSettingsError(''); }} placeholder="Ej. ACME S.L." error={!!settingsError && !formData.company_name.trim()} />
+                 <InputField label="NIF / CIF *" value={formData.cif} onChange={e => { setFormData({...formData, cif: e.target.value}); setSettingsError(''); }} placeholder="B12345678" error={!!settingsError && !formData.cif.trim()} />
+                 <InputField label="Responsable *" value={formData.owner_name} onChange={e => { setFormData({...formData, owner_name: e.target.value}); setSettingsError(''); }} placeholder="Nombre Completo" error={!!settingsError && !formData.owner_name.trim()} />
+                 <InputField label="Email Fiscal *" value={formData.email} onChange={e => { setFormData({...formData, email: e.target.value}); setSettingsError(''); }} placeholder="admin@factio.es" error={!!settingsError && !formData.email.trim()} />
+                 <InputField label="Teléfono *" value={formData.phone} onChange={e => { setFormData({...formData, phone: e.target.value}); setSettingsError(''); }} placeholder="+34 ..." error={!!settingsError && !formData.phone.trim()} />
                  <InputField label="Página Web" value={(formData as any).website || ''} onChange={e => setFormData({...formData, website: e.target.value} as any)} placeholder="https://www.tuempresa.com" />
-                 <InputField label="Ciudad" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} placeholder="Madrid" />
-                 <InputField label="Dirección Postal" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Calle Falsa 123" />
+                 <InputField label="Ciudad *" value={formData.city} onChange={e => { setFormData({...formData, city: e.target.value}); setSettingsError(''); }} placeholder="Madrid" error={!!settingsError && !formData.city.trim()} />
+                 <InputField label="Dirección Postal *" value={formData.address} onChange={e => { setFormData({...formData, address: e.target.value}); setSettingsError(''); }} placeholder="Calle Falsa 123" error={!!settingsError && !formData.address.trim()} />
                  <div className="grid grid-cols-2 gap-3">
-                    <InputField label="Provincia" value={formData.province} onChange={(e: any) => setFormData({...formData, province: e.target.value})} placeholder="Madrid" />
-                    <InputField label="C.P." value={formData.zip} onChange={(e: any) => setFormData({...formData, zip: e.target.value})} placeholder="28001" />
+                    <InputField label="Provincia *" value={formData.province} onChange={(e: any) => { setFormData({...formData, province: e.target.value}); setSettingsError(''); }} placeholder="Madrid" error={!!settingsError && !formData.province?.trim()} />
+                    <InputField label="C.P. *" value={formData.zip} onChange={(e: any) => { setFormData({...formData, zip: e.target.value}); setSettingsError(''); }} placeholder="28001" error={!!settingsError && !formData.zip?.trim()} />
                  </div>
               </div>
 
@@ -293,6 +315,11 @@ export default function SettingsView({ settings, onUpdate, initialTab }: Props) 
               </div>
             </Card>
 
+            {settingsError && (
+              <div className="px-2">
+                <p className="text-[10px] font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2">{settingsError}</p>
+              </div>
+            )}
             <div className="flex items-center justify-between px-2 pt-2">
                <div>{saved && <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest animate-pulse">✓ Guardado</span>}</div>
                <button type="submit" className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
@@ -571,10 +598,10 @@ function CompactField({ label, value, onChange, icon, type = 'text', placeholder
    );
 }
 
-function InputField({ label, value, onChange, placeholder, type = 'text', prefix }: any) {
+function InputField({ label, value, onChange, placeholder, type = 'text', prefix, error }: any) {
   return (
     <div className="space-y-1.5 px-1 relative">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+      <label className={`text-[10px] font-black uppercase tracking-widest ${error ? 'text-rose-400' : 'text-slate-400'}`}>{label}</label>
       <div className="relative">
         {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">{prefix}</span>}
         <input
@@ -584,7 +611,7 @@ function InputField({ label, value, onChange, placeholder, type = 'text', prefix
           placeholder={placeholder}
           readOnly
           onFocus={e => e.target.removeAttribute('readOnly')}
-          className={`w-full bg-slate-900 border border-white/5 py-1.5 rounded-xl font-bold text-slate-200 outline-none focus:border-purple-500/50 focus:bg-white/5 transition-all text-xs ${prefix ? 'pl-8' : 'px-3'}`}
+          className={`w-full bg-slate-900 border py-1.5 rounded-xl font-bold text-slate-200 outline-none focus:bg-white/5 transition-all text-xs ${prefix ? 'pl-8' : 'px-3'} ${error ? 'border-rose-500/60 focus:border-rose-500' : 'border-white/5 focus:border-purple-500/50'}`}
         />
       </div>
     </div>
