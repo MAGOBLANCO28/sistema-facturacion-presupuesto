@@ -60,17 +60,6 @@ const EMPTY_FORM = {
   items: [{ concept: '', quantity: 1, price: 0, total: 0 }] as RecurringItem[],
 };
 
-interface Client {
-  id: number;
-  name: string;
-  nif: string | null;
-  email: string | null;
-  address: string | null;
-  city: string | null;
-  zip: string | null;
-  province: string | null;
-}
-
 export default function RecurringView() {
   const { plan, canUse } = usePlan();
   const [list, setList] = useState<Recurring[]>([]);
@@ -80,7 +69,6 @@ export default function RecurringView() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [clients, setClients] = useState<Client[]>([]);
 
   const fetchList = useCallback(async () => {
     if (!canUse('recurring')) { setLoading(false); return; }
@@ -92,29 +80,7 @@ export default function RecurringView() {
     finally { setLoading(false); }
   }, [canUse]);
 
-  const fetchClients = useCallback(async () => {
-    try {
-      const res = await authFetch('/api/clients');
-      if (res.ok) setClients(await res.json());
-    } catch {}
-  }, []);
-
-  useEffect(() => { fetchList(); fetchClients(); }, [fetchList, fetchClients]);
-
-  const handleSelectClient = (clientId: string) => {
-    const c = clients.find(cl => cl.id === Number(clientId));
-    if (!c) return;
-    setForm(f => ({
-      ...f,
-      client_name: c.name || '',
-      client_dni: c.nif || '',
-      client_address: c.address || '',
-      client_city: c.city || '',
-      client_zip: c.zip || '',
-      client_province: c.province || '',
-      client_email: c.email || '',
-    }));
-  };
+  useEffect(() => { fetchList(); }, [fetchList]);
 
   const openNew = () => {
     setEditing(null);
@@ -303,24 +269,7 @@ export default function RecurringView() {
                 <div className="p-6 space-y-4">
                   <Field label="Nombre de la plantilla" value={form.name} onChange={v => setForm(f => ({...f, name: v}))} placeholder="Ej. Mantenimiento web mensual" />
 
-                  {/* Selector de cliente existente */}
-                  {clients.length > 0 && (
-                    <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Seleccionar cliente guardado</label>
-                      <select
-                        defaultValue=""
-                        onChange={e => handleSelectClient(e.target.value)}
-                        className="w-full mt-1 px-3 py-2.5 bg-white/5 border border-white/8 rounded-xl text-[11px] font-bold text-slate-200 outline-none focus:ring-1 focus:ring-purple-500/30"
-                      >
-                        <option value="">— Elige un cliente para rellenar sus datos —</option>
-                        {clients.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}{c.nif ? ` · ${c.nif}` : ''}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
+<div className="grid grid-cols-2 gap-3">
                     <Field label="Nombre del cliente *" value={form.client_name} onChange={v => setForm(f => ({...f, client_name: v}))} placeholder="Empresa S.L." />
                     <Field label="NIF/CIF" value={form.client_dni} onChange={v => setForm(f => ({...f, client_dni: v}))} placeholder="B12345678" />
                   </div>
